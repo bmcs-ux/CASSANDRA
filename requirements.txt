@@ -1,0 +1,14 @@
+pandas
+pandas-datareader
+yfinance
+matplotlib
+seaborn
+statsmodels
+pmdarima
+pykalman
+scikit-learn
+scipy
+fredapi
+arch
+python-dotenv
+requests
