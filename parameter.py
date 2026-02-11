@@ -111,3 +111,10 @@ VOLATILITY_RISK_THRESHOLD = 0.02 # If forecast interval width exceeds this, trig
 # Example of how parameters might be structured and accessed:
 # from parameter import PAIRS, FRED_API_KEY
 # print(PAIRS['EURUSD'])
+
+
+# --- Compatibility aliases for modules that still use legacy names ---
+# Keep these aliases until all modules are fully migrated to new parameter names.
+maxlag_test = maxlag_granger
+alpha = alpha_granger
+lookback_days = fred_lookback_days

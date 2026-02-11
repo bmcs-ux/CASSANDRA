@@ -1,9 +1,9 @@
 import pandas as pd
-import fredapi
+from fredapi import Fred
 from datetime import datetime, timedelta
 import numpy as np
 #import parameters #(assuming parameter.py is executed or imported)
-from parameter import FRED_API_KEY, FRED_SERIES, lookback_days
+from parameter import FRED_API_KEY, FRED_SERIES
 
 def download_macro_data(log_stream, FRED_API_KEY, FRED_SERIES, lookback_days): # ADDED log_stream
     """

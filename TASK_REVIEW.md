@@ -1,0 +1,40 @@
+# Hasil Tinjauan Codebase
+
+Berikut empat tugas yang diajukan berdasarkan temuan saat meninjau codebase:
+
+1. **Perbaiki salah ketik**
+   - Temuan: berkas inisialisasi paket tertulis `preprocessing/ __init__.py` (ada spasi di awal nama berkas).
+   - Tugas: ganti nama menjadi `preprocessing/__init__.py` agar paket Python terdeteksi secara konsisten.
+
+2. **Perbaiki bug**
+   - Temuan: pada konfigurasi path, kode menggunakan `sys.sys.path.append(ROOT_DIR)`.
+   - Tugas: ubah menjadi `sys.path.append(ROOT_DIR)` karena atribut `sys.sys` tidak valid.
+
+3. **Perbaiki komentar / ketidaksesuaian dokumentasi**
+   - Temuan: dokumentasi fungsi `check_data_freshness` menjelaskan toleransi M1 sekitar 5–10 menit, tetapi implementasi sebelumnya memakai 24 jam.
+   - Tugas: samakan implementasi dengan dokumentasi dengan menetapkan toleransi M1 menjadi 10 menit.
+
+4. **Tingkatkan pengujian**
+   - Temuan: belum ada pengujian otomatis untuk perilaku inti `combine_log_returns`.
+   - Tugas: tambahkan unit test untuk memverifikasi:
+     - mode `return_type='dict'` membuat alias kolom `Log_Return`,
+     - mode `return_type='df'` memberi prefix nama pasangan secara benar.
+
+
+## Tinjauan Tambahan (Integrasi Exness)
+
+1. **Perbaiki salah ketik**
+   - Temuan: frasa seperti "mecari/mengahasil" muncul pada instruksi operasional internal.
+   - Tugas: standarkan menjadi "mencari/menghasilkan" pada dokumentasi operasional agar tidak membingungkan implementasi.
+
+2. **Perbaiki bug**
+   - Temuan: fallback `pair_raw` sebelumnya masih mengandalkan sumber non-Exness saat CSV lokal tidak ditemukan.
+   - Tugas: ubah fallback menjadi pengunduhan tick Exness (aturan bulanan untuk bulan lampau dan harian untuk bulan berjalan), lalu resample ke OHLC timeframe pipeline.
+
+3. **Perbaiki komentar/dokumentasi**
+   - Temuan: dokumentasi loading lokal belum menjelaskan pola nama file timeframe (`_m1`, `_h1`, `_d1`) dan aturan URL Exness harian/bulanan.
+   - Tugas: perbarui docstring helper resolver URL/path agar konsisten dengan implementasi.
+
+4. **Tingkatkan pengujian**
+   - Temuan: belum ada test yang memverifikasi fallback Exness serta aturan pembentukan URL bulanan+harian.
+   - Tugas: tambahkan unit test untuk `_build_exness_urls` dan fallback `load_base_data_mtf` dengan mock respons ZIP tick Exness.
