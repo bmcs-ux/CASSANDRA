@@ -76,6 +76,10 @@ def run_pipeline() -> Dict[str, Any]:
 
     results: Dict[str, Any] = {}
     try:
+        main_result = main.main()
+        if not main_result or not isinstance(main_result, tuple) or len(main_result) != 16:
+            raise RuntimeError("main.main() tidak mengembalikan tuple 16 elemen yang valid.")
+
         (
             results['run_id'],
             results['base_dfs'],
@@ -93,7 +97,7 @@ def run_pipeline() -> Dict[str, Any]:
             results['execution_log'],
             results['model_summary_df'],
             results['last_actual_prices_dict'],
-        ) = main.main()
+        ) = main_result
 
         print("\n✅ Pipeline utama selesai. Semua variabel hasil sekarang tersedia secara global.")
 

@@ -38,3 +38,22 @@ Berikut empat tugas yang diajukan berdasarkan temuan saat meninjau codebase:
 4. **Tingkatkan pengujian**
    - Temuan: belum ada test yang memverifikasi fallback Exness serta aturan pembentukan URL bulanan+harian.
    - Tugas: tambahkan unit test untuk `_build_exness_urls` dan fallback `load_base_data_mtf` dengan mock respons ZIP tick Exness.
+
+
+## Tinjauan Tambahan (Stabilitas Orchestrator)
+
+1. **Perbaiki salah ketik**
+   - Temuan: pesan log campuran istilah Inggris/Indonesia membuat troubleshooting kurang konsisten.
+   - Tugas: standarkan frasa log error utama (contoh: "cannot unpack" dipadankan dengan konteks Indonesia) agar mudah ditelusuri.
+
+2. **Perbaiki bug**
+   - Temuan: proses orchestrator gagal `cannot unpack non-iterable NoneType object` ketika `main.main()` tidak mengembalikan tuple yang diharapkan.
+   - Tugas: tambahkan validasi bentuk output `main.main()` dan guard pada titik unpack hasil `safe_run` di pipeline utama.
+
+3. **Perbaiki komentar/dokumentasi**
+   - Temuan: kontrak fungsi `safe_run` (menyisipkan `log_stream` sebagai argumen pertama) belum terdokumentasi kuat untuk semua module helper.
+   - Tugas: perjelas docstring/komentar fungsi helper agar signature modul konsisten dengan pemanggilan.
+
+4. **Tingkatkan pengujian**
+   - Temuan: belum ada test yang menutupi skenario `main.main()` mengembalikan nilai tidak valid dan setup Kalman saat data M1 kosong.
+   - Tugas: tambahkan unit test untuk guard orchestrator dan guard setup Kalman.

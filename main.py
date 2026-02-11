@@ -572,8 +572,13 @@ def main():
 
     for tf, b_dfs in mtf_base_dfs.items():
         if not b_dfs: continue
-        # Call preprocess_data_tf, which should return log_returns_dict, cleaned_fred_for_tf, combined_df (for cross-asset exog)
-        log_returns_tf, cleaned_fred_tf, combined_log_returns_tf = safe_run(f"Preprocess {tf}", log_stream, preprocess_data_tf, b_dfs, fred_df, fred_meta, tf)
+        # Call preprocess_data_tf, which should return (log_returns_dict, cleaned_fred_for_tf, combined_df)
+        preprocess_result = safe_run(f"Preprocess {tf}", log_stream, preprocess_data_tf, b_dfs, fred_df, fred_meta, tf)
+        if not preprocess_result or not isinstance(preprocess_result, tuple) or len(preprocess_result) != 3:
+            log_stream.write(f"[WARN] Preprocess {tf} tidak mengembalikan tuple 3 elemen. Layer {tf} dilewati.\n")
+            continue
+
+        log_returns_tf, cleaned_fred_tf, combined_log_returns_tf = preprocess_result
 
         if log_returns_tf is not None:
             mtf_log_returns[tf] = log_returns_tf
@@ -595,8 +600,13 @@ def main():
         log_stream.write(f"\n[PROCESS] Analisis & Fitting Layer {tf}...\n")
 
         # Granger Test: Only FRED data should be used as exogenous for D1
-        granger_results, exog_map_tf = safe_run(f"Granger {tf}", log_stream, run_granger_all,
+        granger_result = safe_run(f"Granger {tf}", log_stream, run_granger_all,
                                mtf_log_returns.get(tf, {}), cleaned_fred_combined_df if tf == 'D1' else {}, timeframe_label=tf)
+        if not granger_result or not isinstance(granger_result, tuple) or len(granger_result) != 2:
+            log_stream.write(f"[WARN] Granger {tf} tidak mengembalikan tuple 2 elemen. Eksogen dianggap kosong.\n")
+            granger_results, exog_map_tf = pd.DataFrame(), {}
+        else:
+            granger_results, exog_map_tf = granger_result
         mtf_exog_maps[tf] = exog_map_tf # Store the exog_map for the current timeframe
 
         # Prepare combined exogenous pool for model fitting for this TF
@@ -629,7 +639,9 @@ def main():
 
     # 5. Setup Lapisan M1 (Kalman)
     if 'M1' in mtf_base_dfs: # Kalman filter is applied directly to M1 raw data
-        kalman_models_m1 = safe_run("Setup Kalman Filter for M1", log_stream, setup_kalman_filter, log_stream, mtf_base_dfs['M1'])
+        m1_pairs = mtf_base_dfs.get('M1', {})
+        m1_df = next((df for df in m1_pairs.values() if df is not None and not df.empty), None)
+        kalman_models_m1 = safe_run("Setup Kalman Filter for M1", log_stream, setup_kalman_filter, m1_df) if m1_df is not None else None
         if kalman_models_m1 is not None:
             ensemble_results['M1'] = kalman_models_m1
 
