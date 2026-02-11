@@ -95,3 +95,22 @@ Berikut empat tugas yang diajukan berdasarkan temuan saat meninjau codebase:
 4. **Tingkatkan pengujian**
    - Temuan: belum ada test yang menutup kasus fallback preprocess ketika hasil `Combine DF` gagal.
    - Tugas: tambahkan test untuk memastikan preprocess tetap mengembalikan tuple valid walau hasil DataFrame tidak tersedia.
+
+
+## Tinjauan Tambahan (Robustness Type-Check Pipeline)
+
+1. **Perbaiki salah ketik**
+   - Temuan: istilah `symbol` dan `simbol` bercampur pada catatan konfigurasi pair.
+   - Tugas: standarkan istilah menjadi `simbol` pada dokumentasi internal berbahasa Indonesia.
+
+2. **Perbaiki bug**
+   - Temuan: beberapa jalur mengasumsikan objek selalu DataFrame dan langsung mengakses `.empty`, padahal pada kasus tertentu bisa berupa `list`.
+   - Tugas: tambahkan guard tipe (`isinstance(..., pd.DataFrame)`) sebelum akses `.empty` agar pipeline tidak crash dengan error `'list' object has no attribute 'empty'`.
+
+3. **Perbaiki komentar/dokumentasi**
+   - Temuan: kontrak input antar tahap (khususnya `log_returns` dan pool eksogen MTF) belum menegaskan tipe data yang diharapkan.
+   - Tugas: perbarui komentar/docstring agar eksplisit menyatakan tipe yang valid di setiap tahap.
+
+4. **Tingkatkan pengujian**
+   - Temuan: belum ada test untuk validasi konfigurasi pair `US500` dan ketahanan guard tipe.
+   - Tugas: tambahkan unit test untuk memastikan konfigurasi pair selaras dan guard kompatibilitas tetap aktif.

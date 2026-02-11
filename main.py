@@ -74,7 +74,7 @@ def check_data_freshness(log_stream, mtf_base_dfs, current_utc_time):
     is_fresh_overall = True
     for tf, pairs_dict in mtf_base_dfs.items():
         for pair_name, df in pairs_dict.items():
-            if df is None or df.empty:
+            if not isinstance(df, pd.DataFrame) or df.empty:
                 continue
 
             latest_ts = df.index.max()
@@ -110,7 +110,7 @@ def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
     d1_dict = mtf_base_dfs.get('D1', {})
     d1_last_ts = []
     for df in d1_dict.values():
-        if df is None or df.empty:
+        if not isinstance(df, pd.DataFrame) or df.empty:
             continue
         ts = df.index.max()
         if ts.tz is None:
@@ -124,7 +124,7 @@ def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
         all_latest = []
         for pairs_dict in mtf_base_dfs.values():
             for df in pairs_dict.values():
-                if df is None or df.empty:
+                if not isinstance(df, pd.DataFrame) or df.empty:
                     continue
                 ts = df.index.max()
                 if ts.tz is None:
@@ -142,7 +142,7 @@ def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
     for tf, pairs_dict in mtf_base_dfs.items():
         aligned[tf] = {}
         for pair_name, df in pairs_dict.items():
-            if df is None or df.empty:
+            if not isinstance(df, pd.DataFrame) or df.empty:
                 aligned[tf][pair_name] = df
                 continue
 
@@ -232,8 +232,8 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
     granger_exogs = {}
 
     # HANYA masukkan FRED jika kita di timeframe D1
-    if timeframe_label == "D1" and cleaned_fred: # cleaned_fred is now a single DF
-        for col in cleaned_fred.columns: # Iterate over columns of cleaned_fred DF
+    if timeframe_label == "D1" and isinstance(cleaned_fred, pd.DataFrame) and not cleaned_fred.empty:
+        for col in cleaned_fred.columns:
             if col not in ['release_date', 'effective_until_next_release', 'date']:
                 granger_exogs[col] = cleaned_fred[[col]].dropna()
 
@@ -696,7 +696,7 @@ def main():
         for other_tf, other_log_returns_df in mtf_exog_pool.items():
             # Example: H1 can use D1 log returns as exog, M1 can use H1 as exog
             # This logic needs to be refined based on actual cross-timeframe exog strategy
-            if other_log_returns_df is not None and not other_log_returns_df.empty:
+            if isinstance(other_log_returns_df, pd.DataFrame) and not other_log_returns_df.empty:
                 current_tf_exog_pool = pd.concat([current_tf_exog_pool, other_log_returns_df], axis=1)
 
         current_tf_exog_pool = current_tf_exog_pool.loc[:,~current_tf_exog_pool.columns.duplicated()].ffill().dropna(how='all')
@@ -717,7 +717,7 @@ def main():
     # 5. Setup Lapisan M1 (Kalman)
     if 'M1' in mtf_base_dfs: # Kalman filter is applied directly to M1 raw data
         m1_pairs = mtf_base_dfs.get('M1', {})
-        m1_df = next((df for df in m1_pairs.values() if df is not None and not df.empty), None)
+        m1_df = next((df for df in m1_pairs.values() if isinstance(df, pd.DataFrame) and not df.empty), None)
         kalman_models_m1 = safe_run("Setup Kalman Filter for M1", log_stream, setup_kalman_filter_compat, m1_df) if m1_df is not None else None
         if kalman_models_m1 is not None:
             ensemble_results['M1'] = kalman_models_m1
