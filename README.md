@@ -24,13 +24,13 @@ Modifikasi utama pada pipeline standar adalah pengintegrasian sistem Multi-Timef
 **Catatan Penting:**
 *   **Log-Return Restoration:** Model bekerja di ruang log-return untuk stabilitas statistik. Fungsi `restore_log_returns_to_price` diimplementasikan untuk mengembalikan prediksi ke skala harga asli (OHLC) sebelum dikirim ke platform perdagangan.
 *   **Struktur Folder Relevan:**
+    *   `raw': direktori modul untuk memproses sumber data *using download, api or local csv*
     *   `preprocesing`: Modul untuk log-return, stasionaritas, dan transformasi FRED.
     *   `vps_sync`: Folder sinkronisasi untuk *pickle* model dan *status JSON*.
     *   `data_base`: Penyimpanan lokal CSV untuk *backtesting*.
+    *   `fitted_modls`: Folder modul untuk uji kausalitas dan konfigurasi fitting models
     *   `main.py`: *Entry point* utama untuk *training* di Colab.
     *   `parameter.py`: Pusat konfigurasi sistem.
-    *   `granger.py`: *Engine* untuk uji kausalitas.
-    *   `def_varx.py`: *Wrapper* untuk VARMAX & SARIMAX.
     *   `requirements.txt`: Daftar dependensi library.
 
 **Status Sistem:** Ready for Production, Current Version: 2.0 (Multi-Timeframe Integrated).
