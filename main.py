@@ -65,25 +65,27 @@ def safe_run(step_name, log_stream, func, *args, **kwargs):
 def check_data_freshness(log_stream, mtf_base_dfs, current_utc_time):
     """
     Memeriksa kesegaran data untuk semua timeframe.
-    M1 harus sangat fresh (< 5-10 menit), D1 bisa toleransi 1 hari.
+    Catatan: fungsi ini bersifat informatif dan tidak lagi menghentikan pipeline.
     """
     log_stream.write("\n=== Checking Multi-Timeframe Data Freshness ===\n")
-    if not mtf_base_dfs: return False
+    if not mtf_base_dfs:
+        return False
 
     is_fresh_overall = True
     for tf, pairs_dict in mtf_base_dfs.items():
         for pair_name, df in pairs_dict.items():
-            if df.empty: continue
+            if df is None or df.empty:
+                continue
 
             latest_ts = df.index.max()
-            if latest_ts.tz is None: latest_ts = latest_ts.tz_localize('UTC')
+            if latest_ts.tz is None:
+                latest_ts = latest_ts.tz_localize('UTC')
 
-            # Logika toleransi per TF
             if tf == 'D1':
                 tolerance = timedelta(hours=24)
             elif tf == 'H1':
                 tolerance = timedelta(hours=3)
-            else: # M1
+            else:  # M1
                 tolerance = timedelta(minutes=10)
 
             if latest_ts < (current_utc_time - tolerance):
@@ -91,6 +93,72 @@ def check_data_freshness(log_stream, mtf_base_dfs, current_utc_time):
                 is_fresh_overall = False
 
     return is_fresh_overall
+
+
+def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
+    """
+    Menyamakan horizon waktu antar-timeframe agar training tetap berjalan walau M1 tidak fresh.
+
+    Strategi:
+    1) Gunakan common close berbasis D1 (timeframe paling rendah frekuensinya) jika tersedia.
+    2) Jika D1 tidak tersedia, gunakan minimum latest timestamp lintas semua timeframe.
+    3) Potong seluruh data TF pada index <= cutoff tersebut.
+    """
+    if not mtf_base_dfs:
+        return mtf_base_dfs
+
+    d1_dict = mtf_base_dfs.get('D1', {})
+    d1_last_ts = []
+    for df in d1_dict.values():
+        if df is None or df.empty:
+            continue
+        ts = df.index.max()
+        if ts.tz is None:
+            ts = ts.tz_localize('UTC')
+        d1_last_ts.append(ts)
+
+    if d1_last_ts:
+        reference_close_ts = min(d1_last_ts)
+        log_stream.write(f"[INFO] Menggunakan D1 common close sebagai cutoff: {reference_close_ts}\n")
+    else:
+        all_latest = []
+        for pairs_dict in mtf_base_dfs.values():
+            for df in pairs_dict.values():
+                if df is None or df.empty:
+                    continue
+                ts = df.index.max()
+                if ts.tz is None:
+                    ts = ts.tz_localize('UTC')
+                all_latest.append(ts)
+
+        if not all_latest:
+            log_stream.write("[WARN] Tidak ada timestamp valid untuk alignment MTF.\n")
+            return mtf_base_dfs
+
+        reference_close_ts = min(all_latest)
+        log_stream.write(f"[WARN] D1 tidak tersedia. Fallback cutoff lintas TF: {reference_close_ts}\n")
+
+    aligned = {}
+    for tf, pairs_dict in mtf_base_dfs.items():
+        aligned[tf] = {}
+        for pair_name, df in pairs_dict.items():
+            if df is None or df.empty:
+                aligned[tf][pair_name] = df
+                continue
+
+            idx = df.index
+            if idx.tz is None:
+                df = df.copy()
+                df.index = idx.tz_localize('UTC')
+
+            df_cut = df[df.index <= reference_close_ts].copy()
+            if df_cut.empty:
+                log_stream.write(
+                    f"[WARN] Setelah alignment, data {tf} {pair_name} kosong (cutoff={reference_close_ts}).\n"
+                )
+            aligned[tf][pair_name] = df_cut
+
+    return aligned
 # ============================================================
 # 1\" LOAD DATA
 # ============================================================
@@ -554,15 +622,13 @@ def main():
                                      parameter.USE_LOCAL_CSV_FOR_PAIRS,
                                      parameter.LOCAL_CSV_FILEPATH)
 
-    # Freshness check pada timeframe terkecil (M1)
-    # The check_data_freshness function expects the full mtf_base_dfs dictionary, not just mtf_base_dfs['M1']
-    current_execution_log = log_stream.getvalue()
-    if not safe_run("Cek Data Freshness", log_stream, check_data_freshness,
-                    mtf_base_dfs, datetime.now(timezone.utc)): # Pass the full dict
-        log_stream.write("[ERROR] Data M1 tidak segar. Berhenti.\n")
-        # Ensure log is captured before early exit
-        current_execution_log += log_stream.getvalue()
-        return (run_id, {}, None, None, {}, {}, pd.DataFrame(), {}, pd.DataFrame(), {}, {}, {}, {}, current_execution_log, pd.DataFrame(), {}) # Return empty structures but with full log
+    # Freshness check hanya untuk monitoring, tidak menghentikan proses training
+    safe_run("Cek Data Freshness", log_stream, check_data_freshness,
+             mtf_base_dfs, datetime.now(timezone.utc))
+
+    # Selaraskan seluruh timeframe ke common close agar horizon observasi konsisten
+    mtf_base_dfs = safe_run("Align MTF to Common Close", log_stream, align_mtf_data_to_common_close,
+                            mtf_base_dfs) or mtf_base_dfs
 
     # === 3. PREPROCESSING MTF ===
     mtf_log_returns = {}

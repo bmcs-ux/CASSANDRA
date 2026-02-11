@@ -57,3 +57,22 @@ Berikut empat tugas yang diajukan berdasarkan temuan saat meninjau codebase:
 4. **Tingkatkan pengujian**
    - Temuan: belum ada test yang menutupi skenario `main.main()` mengembalikan nilai tidak valid dan setup Kalman saat data M1 kosong.
    - Tugas: tambahkan unit test untuk guard orchestrator dan guard setup Kalman.
+
+
+## Tinjauan Tambahan (Hybrid Freshness & Common Close)
+
+1. **Perbaiki salah ketik**
+   - Temuan: istilah "time frame" dan "timeframe" masih tercampur pada catatan internal.
+   - Tugas: standarkan istilah menjadi "timeframe" di seluruh dokumentasi pipeline.
+
+2. **Perbaiki bug**
+   - Temuan: pipeline berhenti total saat M1 stale meski tujuan utama adalah training model hybrid lintas timeframe.
+   - Tugas: ubah dari hard-stop menjadi alignment/cutting data ke `common close` lintas timeframe agar training tetap berjalan.
+
+3. **Perbaiki komentar/dokumentasi**
+   - Temuan: komentar fungsi freshness sebelumnya menyiratkan kontrol stop-run, padahal kebutuhan aktual adalah monitoring + alignment.
+   - Tugas: revisi docstring/komentar agar mencerminkan perilaku baru (informational check + common-close alignment).
+
+4. **Tingkatkan pengujian**
+   - Temuan: belum ada test untuk skenario stale M1 namun pipeline tetap lanjut lewat alignment common-close.
+   - Tugas: tambahkan unit/integration test untuk verifikasi pemotongan index semua TF ke cutoff yang sama.
