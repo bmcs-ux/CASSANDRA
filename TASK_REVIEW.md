@@ -76,3 +76,22 @@ Berikut empat tugas yang diajukan berdasarkan temuan saat meninjau codebase:
 4. **Tingkatkan pengujian**
    - Temuan: belum ada test untuk skenario stale M1 namun pipeline tetap lanjut lewat alignment common-close.
    - Tugas: tambahkan unit/integration test untuk verifikasi pemotongan index semua TF ke cutoff yang sama.
+
+
+## Tinjauan Tambahan (Stabilitas Preprocess & FRED Logging)
+
+1. **Perbaiki salah ketik**
+   - Temuan: istilah `preprosesing`/`preprocessing` masih bercampur pada catatan operasional.
+   - Tugas: standarkan istilah menjadi `preprocessing` agar konsisten di log dan dokumentasi.
+
+2. **Perbaiki bug**
+   - Temuan: `combined_df = ... or pd.DataFrame()` memicu error ambiguity pada objek `DataFrame`.
+   - Tugas: ubah fallback menjadi pemeriksaan tipe eksplisit (`isinstance(..., pd.DataFrame)`) tanpa evaluasi truthy DataFrame.
+
+3. **Perbaiki komentar/dokumentasi**
+   - Temuan: inspeksi FRED mengasumsikan semua index punya atribut `.tz`, padahal bisa `Index` non-datetime.
+   - Tugas: perbarui logika inspeksi dan komentarnya agar aman untuk index non-datetime.
+
+4. **Tingkatkan pengujian**
+   - Temuan: belum ada test yang menutup kasus fallback preprocess ketika hasil `Combine DF` gagal.
+   - Tugas: tambahkan test untuk memastikan preprocess tetap mengembalikan tuple valid walau hasil DataFrame tidak tersedia.

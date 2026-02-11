@@ -180,7 +180,8 @@ def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
     # 1. Log Return
     log_returns_raw = safe_run(f"Log Return {tf_label}", log_stream, apply_log_return_to_price, b_dfs) or {}
     log_returns_dict = safe_run(f"Combine Dict {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='dict') or {}
-    combined_df = safe_run(f"Combine DF {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='df') or pd.DataFrame()
+    combined_df_res = safe_run(f"Combine DF {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='df')
+    combined_df = combined_df_res if isinstance(combined_df_res, pd.DataFrame) else pd.DataFrame()
 
     # 2. FRED Transform (Hanya jika D1 dan data FRED tersedia)
     cleaned_fred = {} # Placeholder, will be populated if D1
@@ -196,6 +197,16 @@ def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
             cleaned_fred = stationarity_res_fred[0] # Assuming it returns the stationary FRED data
 
     return log_returns_dict, cleaned_fred, combined_df
+
+
+def setup_kalman_filter_compat(log_stream, df_m1):
+    """Kompatibilitas untuk dua signature setup_kalman_filter (baru/lama)."""
+    try:
+        return setup_kalman_filter(log_stream, df_m1)
+    except TypeError:
+        # fallback untuk versi lama yang hanya menerima df_m1
+        return setup_kalman_filter(df_m1)
+
 # ============================================================
 # 3\" GRANGER TESTS
 # ============================================================
@@ -707,7 +718,7 @@ def main():
     if 'M1' in mtf_base_dfs: # Kalman filter is applied directly to M1 raw data
         m1_pairs = mtf_base_dfs.get('M1', {})
         m1_df = next((df for df in m1_pairs.values() if df is not None and not df.empty), None)
-        kalman_models_m1 = safe_run("Setup Kalman Filter for M1", log_stream, setup_kalman_filter, m1_df) if m1_df is not None else None
+        kalman_models_m1 = safe_run("Setup Kalman Filter for M1", log_stream, setup_kalman_filter_compat, m1_df) if m1_df is not None else None
         if kalman_models_m1 is not None:
             ensemble_results['M1'] = kalman_models_m1
 

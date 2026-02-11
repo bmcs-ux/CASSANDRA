@@ -17,7 +17,7 @@ PAIRS = {
     'XAUUSD': 'XAUUSD',   # Gold
     'XAGUSD': 'XAGUSD',   # Silver
     'USOIL': 'USOIL',     # Crude Oil
-    'SP500': 'SP500',
+    'US500': 'US500',
     'DXY': 'DXY',
 }
 ALL_SYMBOLS = list(PAIRS.values())
@@ -34,7 +34,7 @@ FRED_SERIES = {
     'BAMLH0A0HYM2SYTW': 'PCEPILFE',
     'RRPONTSYD': 'UNRATE',
     'DGS10': 'GDP',
-    'SP500': 'SP500',
+    'US500': 'US500',
     'EFFRVOL': 'EFFRVOL',
     'T5YIE': 'T5YIE',
     'DFF': 'DFF',
@@ -81,7 +81,7 @@ alpha_granger = 0.05
 VARX_ENDOG_GROUPS = {
     'FX_Majors_D1': ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return'],
     'Commodities_H1': ['XAUUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return'],
-    'Risk_D1': ['SP500_Close_Log_Return', 'DXY_Close_Log_Return'],
+    'Risk_D1': ['US500_Close_Log_Return', 'DXY_Close_Log_Return'],
 }
 maxlag_varx = 5
 MIN_OBS_FOR_GARCH = 100

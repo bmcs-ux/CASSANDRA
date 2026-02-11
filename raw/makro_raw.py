@@ -146,12 +146,16 @@ def download_macro_data(log_stream, FRED_API_KEY, FRED_SERIES, lookback_days): #
             log_stream.write(f"DataFrame shape: {df.shape}\n") # Changed print to log_stream.write
             log_stream.write(f"DataFrame columns: {list(df.columns)}\n") # Changed print to log_stream.write
             if not df.empty:
-                log_stream.write(f"Index dtype: {df.index.dtype}, tz: {df.index.tz}\n") # Changed print to log_stream.write
-                log_stream.write(f"release_date dtype: {df['release_date'].dtype}, tz: {df['release_date'].dt.tz}\n") # Changed print to log_stream.write
+                index_tz = df.index.tz if isinstance(df.index, pd.DatetimeIndex) else 'N/A'
+                log_stream.write(f"Index dtype: {df.index.dtype}, tz: {index_tz}\n")
+                release_tz = df['release_date'].dt.tz if hasattr(df['release_date'], 'dt') else 'N/A'
+                log_stream.write(f"release_date dtype: {df['release_date'].dtype}, tz: {release_tz}\n")
                 if 'effective_until_next_release' in df.columns:
-                     log_stream.write(f"effective_until_next_release dtype: {df['effective_until_next_release'].dtype}, tz: {df['effective_until_next_release'].dt.tz}\n") # Changed print to log_stream.write
+                     eff_tz = df['effective_until_next_release'].dt.tz if hasattr(df['effective_until_next_release'], 'dt') else 'N/A'
+                     log_stream.write(f"effective_until_next_release dtype: {df['effective_until_next_release'].dtype}, tz: {eff_tz}\n")
                 if 'date' in df.columns:
-                     log_stream.write(f"date dtype: {df['date'].dtype}, tz: {df['date'].dt.tz}\n") # Changed print to log_stream.write
+                     date_tz = df['date'].dt.tz if hasattr(df['date'], 'dt') else 'N/A'
+                     log_stream.write(f"date dtype: {df['date'].dtype}, tz: {date_tz}\n")
             else:
                 log_stream.write("DataFrame is empty.\n") # Changed print to log_stream.write
             log_stream.write("---------------------------------------------------------\n") # Changed print to log_stream.write
