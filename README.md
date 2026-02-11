@@ -33,4 +33,4 @@ Modifikasi utama pada pipeline standar adalah pengintegrasian sistem Multi-Timef
     *   `parameter.py`: Pusat konfigurasi sistem.
     *   `requirements.txt`: Daftar dependensi library.
 
-**Status Sistem:** Ready for Production, Current Version: 2.0 (Multi-Timeframe Integrated).
+**Status Sistem:** currently under development! CASSANDRA is an advanced version of the VARX_REGRESION Project. The latest version is experimental! Current Version: 2.0 (Multi-Timeframe Integrated).
