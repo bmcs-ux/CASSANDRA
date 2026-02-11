@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 # === Konfigurasi Path Modul ===
 ROOT_DIR = '/content/drive/MyDrive/books/CASSANDRA/'
 if ROOT_DIR not in sys.path:
-    sys.sys.path.append(ROOT_DIR)
+    sys.path.append(ROOT_DIR)
 
 # === Helper Reloading (Penting saat Development di Colab) ===
 # Memastikan perubahan pada file .py langsung terdeteksi tanpa restart runtime
@@ -27,7 +27,7 @@ from raw.pair_raw import load_base_data_mtf
 from raw.makro_raw import download_macro_data # Pastikan nama fungsi sesuai dengan makro_raw.py Anda
 
 # 2. Preprocessing
-# Perhatikan penamaan folder 'preprocesing' (pastikan typo satu 's' ini sesuai dengan folder Anda)
+# Perhatikan penamaan folder 'preprocessing' agar konsisten dengan struktur proyek
 from preprocessing.log_return import apply_log_return_to_price
 from preprocessing.fred_transform import apply_fred_transformations
 from preprocessing.handle_missing import handle_missing_fred_data
@@ -58,7 +58,7 @@ def safe_run(step_name, log_stream, func, *args, **kwargs):
         log_stream.write(f"[OK] {step_name} berhasil.\n") # Changed unicode to ASCII OK
         return result # Return the actual result, whether it's a single value or a tuple
     except Exception as e:
-        log_stream.write(f"[ERROR] {step_name} gagal: {e}\n") # Changed unicode to ASCII X
+        log_stream.write(f"[ERROR] {step_name} gagal: {e}\n") # Gunakan tag error ASCII agar log konsisten
         traceback.print_exc(file=log_stream)
         return None # Return None on failure
 
@@ -84,7 +84,7 @@ def check_data_freshness(log_stream, mtf_base_dfs, current_utc_time):
             elif tf == 'H1':
                 tolerance = timedelta(hours=3)
             else: # M1
-                tolerance = timedelta(minutes=60 * 24)
+                tolerance = timedelta(minutes=10)
 
             if latest_ts < (current_utc_time - tolerance):
                 log_stream.write(f"[ALERT] Data {tf} {pair_name} stale! Last: {latest_ts}\n")
