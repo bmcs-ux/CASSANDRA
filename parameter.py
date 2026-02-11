@@ -1,3 +1,4 @@
+%%writefile '/content/drive/MyDrive/books/CASSANDRA/parameter.py'
 import os
 from datetime import timedelta
 
@@ -11,49 +12,70 @@ VPS_SYNC_PATH = os.path.join(ROOT_DIR, 'vps_sync')
 # For Commodities: 'GC=F' (Gold), 'SI=F' (Silver), 'HG=F' (Copper), 'CL=F' (Crude Oil)
 # For Indices: '^GSPC' (S&P 500), '^DJI' (Dow Jones), '^IXIC' (NASDAQ), 'DX-Y.NYB' (DXY)
 PAIRS = {
-    'EURUSD': 'EURUSD=X',
-    'GBPUSD': 'GBPUSD=X',
-    'AUDUSD': 'AUDUSD=X',
-    'USDCAD': 'USDCAD=X',
-    'USDCHF': 'USDCHF=X',
-    'USDJPY': 'USDJPY=X',
-    'NZDUSD': 'NZDUSD=X',
-    'XAUUSD': 'GC=F', # Gold
-    'XAGUSD': 'SI=F', # Silver
-    'USOUSD': 'CL=F', # Crude Oil
-    'SPX500': '^GSPC', # S&P 500
-    'DJI': '^DJI', # Dow Jones
-    'NDX': '^IXIC', # Nasdaq
-    'DXY': 'DX-Y.NYB', # Dollar Index
-    'CADJPY': 'CADJPY=X' # Example of a cross pair
+    #'EURUSD': 'EURUSD',
+    'GBPUSD': 'GBPUSD',
+    'AUDUSD': 'AUDUSD',
+    'USDCAD': 'USDCAD',
+    'USDCHF': 'USDCHF',
+    'USDJPY': 'USDJPY',
+    'NZDUSD': 'NZDUSD',
+    'XAUUSD': 'XAUUSD', # Gold
+    'XAGUSD': 'XAGUSD', # Silver
+    'USOIL': 'USOIL', # Crude Oil
+    'SP500': 'SP500',
+    'DXY': 'DXY' # Dollar Index
+    #'CADJPY': 'CADJPY' # Example of a cross pair
 }
 
 # List of all symbols to check for uniqueness in data fetching
 ALL_SYMBOLS = list(PAIRS.values())
 
 # FRED API
-FRED_API_KEY = os.getenv('FRED_API_KEY', 'YOUR_FRED_API_KEY') # Ambil dari environment variable
+lookback_days = 2200           # Changed to 50 days
+base_interval = "1d"
+
+FRED_API_KEY = '987d18495a386165f0be970f8a733562' # Ambil dari environment variabl
 FRED_SERIES = {
-    'FEDFUNDS': 'FEDFUNDS',             # Fed Funds Rate
-    'CPALTT01USM657N': 'CPALTT01USM657N', # CPI All Items (Monthly)
-    'PCEPILFE': 'PCEPILFE',             # Core PCE Price Index
-    'UNRATE': 'UNRATE',                 # Unemployment Rate
-    'GDP': 'GDP',                       # Gross Domestic Product
-    'SP500': 'SP500'                    # S&P 500 (can be redundant if using ^GSPC)
+    #'FEDFUNDS': 'FEDFUNDS',             # Fed Funds Rate
+    'BAMLEMRECRPIEMEASYTW': 'CPALTT01USM657N', # CPI All Items (Monthly)
+    'BAMLH0A0HYM2SYTW': 'PCEPILFE',
+    'RRPONTSYD': 'UNRATE',                 # Unemployment Rate
+    'DGS10': 'GDP',                       # Gross Domestic Product
+    'SP500': 'SP500',                    # S&P 500 (can be redundant if using ^GSPC)
+    'EFFRVOL': 'lupa',
+    'RRPONTSYD': 'Repurchase Agreements',
+    'T5YIE': 'Inflation Rate',
+    'DFF': 'Funds Volume'
 }
 
+FRED_TRANSFORM_POLICY = {
+    "SP500": "log_return",
+    "BAMLH0A0HYM2SYTW": "log_return",
+    "BAMLEMRECRPIEMEASYTW": "log_return",
+    "EFFRVOL": "log_diff",
+    "RRPONTSYD": "log_diff",
+    "DGS10": "level_and_diff",
+    "T5YIE": "level_and_diff",
+    "DFF": "level_and_diff"
+}
 # New parameters for local CSV usage
-USE_LOCAL_CSV_FOR_PAIRS = False # Set to False to ensure download is attempted
+USE_LOCAL_CSV_FOR_PAIRS = True # Set to False to ensure download is attempted
 LOCAL_CSV_FILEPATH = os.path.join(ROOT_DIR, 'data_base', 'combined_data_final_complete.csv') # Corrected path
 
 
 # Timeframes and Lookback Periods
 # YFinance uses '1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h', '1d', '5d', '1wk', '1mo', '3mo'
-MTF_INTERVALS = {'D1': '1d', 'H1': '1h', 'M1': '1m', 'M5': '5m', 'M15': '15m'} # Added M5 and M15
+MTF_INTERVALS = {
+    'D1': '1d',
+    'H1': '1h',
+    'M1': '1m',
+    #'M5': '5m',
+    #'M15': '15m'
+} # Added M5 and M15
 
 # Lookback days for each timeframe (rough estimate for data fetching)
 # Actual data used will depend on available history and stationarity requirements
-LOOKBACK_DAYS = {
+LOOKBACK_DAYS= {
     'D1': 30,  # Reduced for testing, was 5*365
     'H1': 7,     # Reduced for testing, was 90
     'M1': 2,       # Reduced for testing, was 7 (yfinance max 7 days for 1m interval)
