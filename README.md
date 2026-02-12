@@ -28,7 +28,7 @@ Modifikasi utama pada pipeline standar adalah pengintegrasian sistem Multi-Timef
     *   `preprocesing`: Modul untuk log-return, stasionaritas, dan transformasi FRED.
     *   `vps_sync`: Folder sinkronisasi untuk *pickle* model dan *status JSON*.
     *   `data_base`: Penyimpanan lokal CSV untuk *backtesting*.
-    *   `fitted_modls`: Folder modul untuk uji kausalitas dan konfigurasi fitting models
+    *   `fitted_models`: Folder modul untuk uji kausalitas dan konfigurasi fitting models
     *   `main.py`: *Entry point* utama untuk *training* di Colab.
     *   `parameter.py`: Pusat konfigurasi sistem.
     *   `requirements.txt`: Daftar dependensi library.
