@@ -207,43 +207,29 @@ def identify_significant_exog(granger_results_df, alpha):
     significant_exog_map = {}
 
     if granger_results_df is None or granger_results_df.empty:
-        # log_stream.write("\u26a0\ufe0f DataFrame hasil uji Granger kosong. Tidak dapat mengidentifikasi eksogen signifikan.\n") # Removed log_stream here
         return significant_exog_map
 
-    # Ensure PValue is numeric for filtering
-    granger_results_df['PValue'] = pd.to_numeric(granger_results_df['PValue'], errors='coerce')
+    # Pastikan alpha adalah float
+    try:
+        alpha_val = float(alpha)
+    except:
+        alpha_val = 0.05
 
-    # Filter for significant results
-    significant_results = granger_results_df[granger_results_df['PValue'] < alpha].copy()
+    # Pastikan PValue benar-benar numerik dan buang yang gagal dikonversi (NaN)
+    temp_df = granger_results_df.copy()
+    temp_df['PValue'] = pd.to_numeric(temp_df['PValue'], errors='coerce')
+    
+    # Filter hanya yang signifikan secara statistik
+    significant_results = temp_df[temp_df['PValue'] < alpha_val].dropna(subset=['PValue'])
 
-    if significant_results.empty:
-        # log_stream.write(f"\u2139\ufe0f Tidak ada hubungan Granger signifikan ditemukan pada alpha = {alpha}. Peta eksogen signifikan kosong.\n") # Removed log_stream here
-        return significant_exog_map
-
-    # log_stream.write(f"\u2705 Ditemukan {len(significant_results)} hubungan Granger signifikan (p < {alpha}).\n") # Removed log_stream here
-    # display(significant_results) # Removed display from module
-
-    # Group significant results by the Effect series
-    for index, row in significant_results.iterrows():
+    for _, row in significant_results.iterrows():
         effect_name = row['Effect']
         cause_name = row['Cause']
 
         if effect_name not in significant_exog_map:
             significant_exog_map[effect_name] = []
 
-        # Add the cause_name to the list for this effect, if not already present
         if cause_name not in significant_exog_map[effect_name]:
-             significant_exog_map[effect_name].append(cause_name)
+            significant_exog_map[effect_name].append(cause_name)
 
-    # log_stream.write("\n\ud83d\udcca Peta Target Series ke Eksogen Signifikan (berdasarkan Granger):\n") # Removed log_stream here
-    if significant_exog_map:
-        # for target, exog_list in significant_exog_map.items():
-            # log_stream.write(f"  \u2022 {target} dipengaruhi oleh (Granger cause): {exog_list}\n") # Removed log_stream here
-        pass # Removed log printing, it will be handled by the main pipeline if needed
-    else:
-        # log_stream.write("\u2139\ufe0f Peta eksogen signifikan kosong.\n") # Removed log_stream here
-        pass # Removed log printing, it will be handled by the main pipeline if needed
-
-
-    # log_stream.write("\n\u2705 Identifikasi eksogen signifikan selesai.\n") # Removed log_stream here
     return significant_exog_map
