@@ -251,11 +251,11 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
     # -----------------------------------
 
     # Jalankan uji Granger
-    granger_df = safe_run(f"Granger Test {tf}", log_stream, run_granger_tests, 
-                          mtf_log_returns.get(tf, {}), 
+    granger_df = safe_run(f"Granger Test {timeframe_label}", log_stream, run_granger_tests, 
+                          mtf_log_returns.get(timeframe_label, {}), 
                           maxlag_test=5, 
                           alpha=parameter.ALPHA, 
-                          exogenous_data_dict=cleaned_fred_combined_df if tf == 'D1' else None)
+                          exogenous_data_dict=cleaned_fred_combined_df if timeframe_label == 'D1' else None)
 
     # Identifikasi variabel yang masuk ke model VARX (Exog Map)
     # Inilah yang mencegah error "TypeError: '<' not supported"
