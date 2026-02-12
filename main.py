@@ -171,33 +171,38 @@ def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
 # 2\" PREPROCESSING
 # ============================================================
 
+
 def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
     """
-    Preprocessing khusus untuk satu timeframe tertentu.
+    Preprocessing khusus untuk satu timeframe tertentu dengan penanganan
+    Truth Value DataFrame yang aman.
     """
     log_stream.write(f"\n--- Preprocessing Timeframe: {tf_label} ---\n")
 
-    # 1. Log Return
-    log_returns_raw = safe_run(f"Log Return {tf_label}", log_stream, apply_log_return_to_price, b_dfs) or {}
-    log_returns_dict = safe_run(f"Combine Dict {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='dict') or {}
+    # 1. Hitung Log Return secara mentah
+    # Gunakan pengecekan eksplisit 'is not None' alih-alih 'or {}'
+    res_raw = safe_run(f"Log Return {tf_label}", log_stream, apply_log_return_to_price, b_dfs)
+    log_returns_raw = res_raw if res_raw is not None else {}
+
+    # 2. Gabungkan hasil ke dalam Dictionary
+    res_dict = safe_run(f"Combine Dict {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='dict')
+    log_returns_dict = res_dict if res_dict is not None else {}
+
+    # 3. Gabungkan hasil ke dalam DataFrame (Cross-Asset Exog Pool)
+    # Ini adalah bagian yang paling krusial untuk menghindari ValueError
     combined_df_res = safe_run(f"Combine DF {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='df')
-    combined_df = combined_df_res if isinstance(combined_df_res, pd.DataFrame) else pd.DataFrame()
 
-    # 2. FRED Transform (Hanya jika D1 dan data FRED tersedia)
-    cleaned_fred = {} # Placeholder, will be populated if D1
+    if isinstance(combined_df_res, pd.DataFrame):
+        combined_df = combined_df_res
+    else:
+        combined_df = pd.DataFrame()
+
+    # 4. Handle FRED Data (Hanya jika timeframe adalah harian/D1)
+    cleaned_fred = None
     if tf_label == 'D1' and fred_df is not None:
-        transformed = safe_run("Transformasi FRED", log_stream, apply_fred_transformations, fred_df, parameter.FRED_SERIES, fred_meta) or {}
-        cleaned_fred_raw = safe_run("Handle Missing FRED", log_stream, handle_missing_fred_data, transformed, missing_threshold=0.3) or {}
-
-        # Stasioneritas
-        # For FRED data, we want to stationarize it based on its own properties, not log_returns_dict
-        # Assuming test_and_stationarize_data can handle a single DataFrame for FRED
-        stationarity_res_fred = safe_run("Uji Stasioneritas FRED", log_stream, test_and_stationarize_data, cleaned_fred_raw, {}, parameter.alpha) # Pass empty dict for log_returns
-        if stationarity_res_fred:
-            cleaned_fred = stationarity_res_fred[0] # Assuming it returns the stationary FRED data
+        cleaned_fred = safe_run(f"Clean FRED {tf_label}", log_stream, download_macro_data, fred_df, fred_meta)
 
     return log_returns_dict, cleaned_fred, combined_df
-
 
 def setup_kalman_filter_compat(log_stream, df_m1):
     """Kompatibilitas untuk dua signature setup_kalman_filter (baru/lama)."""
@@ -242,12 +247,22 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
     all_potential_causes = {**granger_exogs, **granger_targets}
 
     # Jalankan uji Granger
-    results = safe_run(f"Granger Test [{timeframe_label}]", log_stream, run_granger_tests,
-                       data_dict=granger_targets,
-                       exogenous_data_dict=all_potential_causes,
-                       maxlag_test=parameter.maxlag_test,
-                       alpha=parameter.alpha)
+    # Di dalam main.py bagian 4 (FITTING)
+    # -----------------------------------
 
+    # Jalankan uji Granger
+    granger_df = safe_run(f"Granger Test {tf}", log_stream, run_granger_tests, 
+                          mtf_log_returns.get(tf, {}), 
+                          maxlag_test=5, 
+                          alpha=parameter.ALPHA, 
+                          exogenous_data_dict=cleaned_fred_combined_df if tf == 'D1' else None)
+
+    # Identifikasi variabel yang masuk ke model VARX (Exog Map)
+    # Inilah yang mencegah error "TypeError: '<' not supported"
+    exog_map_tf = safe_run(f"Map Significant Exog {tf}", log_stream, identify_significant_exog, 
+                          granger_df, parameter.ALPHA)
+
+    mtf_exog_maps[tf] = exog_map_tf
     exog_map = {} # Placeholder for actual exog map
     if results is not None: # Assuming identify_significant_exog is defined elsewhere or in granger.py
         # exog_map = identify_significant_exog(results, parameter.alpha) # This function was not provided
@@ -255,7 +270,8 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
         # A proper implementation would parse `results` to build this map.
         for effect_key, cause_data in results.items():
             for cause_key, p_value in cause_data.items(): # This structure needs to match actual `results`
-                if p_value < parameter.alpha: # Simple threshold
+                p_val_float = float(p_value)
+                if p_val_float < parameter.alpha: # Simple threshold
                     if effect_key not in exog_map:
                         exog_map[effect_key] = []
                     exog_map[effect_key].append(cause_key)
@@ -494,6 +510,7 @@ def fit_dcc_garch_models(log_stream, ensemble_results, log_returns):
 # ============================================================
 # 5\" FORECASTING & RESTORATION
 # ============================================================
+
 
 def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_garch_models, exog_map, cleaned_fred_data, base_data):
     """Performs forecasting using fitted models and restores forecasts to price scale."""
