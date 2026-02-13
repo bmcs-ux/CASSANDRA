@@ -133,7 +133,17 @@ def fit_varx_or_arx(log_stream, df_pair,
         result["summary"] = best_res.summary()
         result["lags_used"] = best_p
         resid = best_res.resid
-        result["R2"] = {col: 1 - (np.var(resid[col]) / np.var(endog[col])) for col in endog.columns}
+        # resid dari SARIMAX univariat biasanya berupa Series, jadi hitung R2 per kolom endog
+        if isinstance(resid, pd.Series):
+            result["R2"] = {
+                col: 1 - (np.var(resid.values) / np.var(endog[col].values))
+                for col in endog.columns
+            }
+        else:
+            result["R2"] = {
+                col: 1 - (np.var(resid[col]) / np.var(endog[col]))
+                for col in endog.columns
+            }
         
         # Tambahkan ini di bagian akhir pengembalian result (sebelum return result)
         if result["fitted_model"] is not None:

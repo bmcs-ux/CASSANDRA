@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 # === Konfigurasi Path Modul ===
 ROOT_DIR = '/content/drive/MyDrive/books/CASSANDRA/'
 if ROOT_DIR not in sys.path:
-    sys.sys.path.append(ROOT_DIR)
+    sys.path.append(ROOT_DIR)
 
 # === Helper Reloading (Penting saat Development di Colab) ===
 # Memastikan perubahan pada file .py langsung terdeteksi tanpa restart runtime
@@ -27,7 +27,7 @@ from raw.pair_raw import load_base_data_mtf
 from raw.makro_raw import download_macro_data # Pastikan nama fungsi sesuai dengan makro_raw.py Anda
 
 # 2. Preprocessing
-# Perhatikan penamaan folder 'preprocesing' (pastikan typo satu 's' ini sesuai dengan folder Anda)
+# Perhatikan penamaan folder 'preprocessing' agar konsisten dengan struktur proyek
 from preprocessing.log_return import apply_log_return_to_price
 from preprocessing.fred_transform import apply_fred_transformations
 from preprocessing.handle_missing import handle_missing_fred_data
@@ -35,7 +35,7 @@ from preprocessing.combine_data import combine_log_returns
 from preprocessing.stationarity_test import test_and_stationarize_data
 
 # 3. Model Engine (Granger, VARX, Kalman)
-from fitted_models.granger import run_granger_tests # Import the actual Granger test function
+from fitted_models.granger import run_granger_tests, identify_significant_exog
 from fitted_models.def_varx import fit_varx_or_arx    # Corrected import: use fit_varx_or_arx
 from fitted_models.kalman_filter import setup_kalman_filter
 
@@ -58,39 +58,107 @@ def safe_run(step_name, log_stream, func, *args, **kwargs):
         log_stream.write(f"[OK] {step_name} berhasil.\n") # Changed unicode to ASCII OK
         return result # Return the actual result, whether it's a single value or a tuple
     except Exception as e:
-        log_stream.write(f"[ERROR] {step_name} gagal: {e}\n") # Changed unicode to ASCII X
+        log_stream.write(f"[ERROR] {step_name} gagal: {e}\n") # Gunakan tag error ASCII agar log konsisten
         traceback.print_exc(file=log_stream)
         return None # Return None on failure
 
 def check_data_freshness(log_stream, mtf_base_dfs, current_utc_time):
     """
     Memeriksa kesegaran data untuk semua timeframe.
-    M1 harus sangat fresh (< 5-10 menit), D1 bisa toleransi 1 hari.
+    Catatan: fungsi ini bersifat informatif dan tidak lagi menghentikan pipeline.
     """
     log_stream.write("\n=== Checking Multi-Timeframe Data Freshness ===\n")
-    if not mtf_base_dfs: return False
+    if not mtf_base_dfs:
+        return False
 
     is_fresh_overall = True
     for tf, pairs_dict in mtf_base_dfs.items():
         for pair_name, df in pairs_dict.items():
-            if df.empty: continue
+            if not isinstance(df, pd.DataFrame) or df.empty:
+                continue
 
             latest_ts = df.index.max()
-            if latest_ts.tz is None: latest_ts = latest_ts.tz_localize('UTC')
+            if latest_ts.tz is None:
+                latest_ts = latest_ts.tz_localize('UTC')
 
-            # Logika toleransi per TF
             if tf == 'D1':
                 tolerance = timedelta(hours=24)
             elif tf == 'H1':
                 tolerance = timedelta(hours=3)
-            else: # M1
-                tolerance = timedelta(minutes=60 * 24)
+            else:  # M1
+                tolerance = timedelta(minutes=10)
 
             if latest_ts < (current_utc_time - tolerance):
                 log_stream.write(f"[ALERT] Data {tf} {pair_name} stale! Last: {latest_ts}\n")
                 is_fresh_overall = False
 
     return is_fresh_overall
+
+
+def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
+    """
+    Menyamakan horizon waktu antar-timeframe agar training tetap berjalan walau M1 tidak fresh.
+
+    Strategi:
+    1) Gunakan common close berbasis D1 (timeframe paling rendah frekuensinya) jika tersedia.
+    2) Jika D1 tidak tersedia, gunakan minimum latest timestamp lintas semua timeframe.
+    3) Potong seluruh data TF pada index <= cutoff tersebut.
+    """
+    if not mtf_base_dfs:
+        return mtf_base_dfs
+
+    d1_dict = mtf_base_dfs.get('D1', {})
+    d1_last_ts = []
+    for df in d1_dict.values():
+        if not isinstance(df, pd.DataFrame) or df.empty:
+            continue
+        ts = df.index.max()
+        if ts.tz is None:
+            ts = ts.tz_localize('UTC')
+        d1_last_ts.append(ts)
+
+    if d1_last_ts:
+        reference_close_ts = min(d1_last_ts)
+        log_stream.write(f"[INFO] Menggunakan D1 common close sebagai cutoff: {reference_close_ts}\n")
+    else:
+        all_latest = []
+        for pairs_dict in mtf_base_dfs.values():
+            for df in pairs_dict.values():
+                if not isinstance(df, pd.DataFrame) or df.empty:
+                    continue
+                ts = df.index.max()
+                if ts.tz is None:
+                    ts = ts.tz_localize('UTC')
+                all_latest.append(ts)
+
+        if not all_latest:
+            log_stream.write("[WARN] Tidak ada timestamp valid untuk alignment MTF.\n")
+            return mtf_base_dfs
+
+        reference_close_ts = min(all_latest)
+        log_stream.write(f"[WARN] D1 tidak tersedia. Fallback cutoff lintas TF: {reference_close_ts}\n")
+
+    aligned = {}
+    for tf, pairs_dict in mtf_base_dfs.items():
+        aligned[tf] = {}
+        for pair_name, df in pairs_dict.items():
+            if not isinstance(df, pd.DataFrame) or df.empty:
+                aligned[tf][pair_name] = df
+                continue
+
+            idx = df.index
+            if idx.tz is None:
+                df = df.copy()
+                df.index = idx.tz_localize('UTC')
+
+            df_cut = df[df.index <= reference_close_ts].copy()
+            if df_cut.empty:
+                log_stream.write(
+                    f"[WARN] Setelah alignment, data {tf} {pair_name} kosong (cutoff={reference_close_ts}).\n"
+                )
+            aligned[tf][pair_name] = df_cut
+
+    return aligned
 # ============================================================
 # 1\" LOAD DATA
 # ============================================================
@@ -112,7 +180,8 @@ def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
     # 1. Log Return
     log_returns_raw = safe_run(f"Log Return {tf_label}", log_stream, apply_log_return_to_price, b_dfs) or {}
     log_returns_dict = safe_run(f"Combine Dict {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='dict') or {}
-    combined_df = safe_run(f"Combine DF {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='df') or pd.DataFrame()
+    combined_df_res = safe_run(f"Combine DF {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='df')
+    combined_df = combined_df_res if isinstance(combined_df_res, pd.DataFrame) else pd.DataFrame()
 
     # 2. FRED Transform (Hanya jika D1 dan data FRED tersedia)
     cleaned_fred = {} # Placeholder, will be populated if D1
@@ -128,6 +197,16 @@ def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
             cleaned_fred = stationarity_res_fred[0] # Assuming it returns the stationary FRED data
 
     return log_returns_dict, cleaned_fred, combined_df
+
+
+def setup_kalman_filter_compat(log_stream, df_m1):
+    """Kompatibilitas untuk dua signature setup_kalman_filter (baru/lama)."""
+    try:
+        return setup_kalman_filter(log_stream, df_m1)
+    except TypeError:
+        # fallback untuk versi lama yang hanya menerima df_m1
+        return setup_kalman_filter(df_m1)
+
 # ============================================================
 # 3\" GRANGER TESTS
 # ============================================================
@@ -144,7 +223,7 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
     # 1. Tentukan Target (semua pair dalam timeframe ini)
     granger_targets = {}
     for pair, df in log_returns.items():
-        if not df.empty:
+        if isinstance(df, pd.DataFrame) and not df.empty:
              log_return_cols = [col for col in df.columns if col.endswith('_Log_Return')]
              for col in log_return_cols:
                  granger_targets[f"{pair}_{col}"] = df[[col]].dropna()
@@ -153,8 +232,8 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
     granger_exogs = {}
 
     # HANYA masukkan FRED jika kita di timeframe D1
-    if timeframe_label == "D1" and cleaned_fred: # cleaned_fred is now a single DF
-        for col in cleaned_fred.columns: # Iterate over columns of cleaned_fred DF
+    if timeframe_label == "D1" and isinstance(cleaned_fred, pd.DataFrame) and not cleaned_fred.empty:
+        for col in cleaned_fred.columns:
             if col not in ['release_date', 'effective_until_next_release', 'date']:
                 granger_exogs[col] = cleaned_fred[[col]].dropna()
 
@@ -169,19 +248,11 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
                        maxlag_test=parameter.maxlag_test,
                        alpha=parameter.alpha)
 
-    exog_map = {} # Placeholder for actual exog map
-    if results is not None: # Assuming identify_significant_exog is defined elsewhere or in granger.py
-        # exog_map = identify_significant_exog(results, parameter.alpha) # This function was not provided
-        # For now, let's just create a dummy exog_map for demonstration
-        # A proper implementation would parse `results` to build this map.
-        for effect_key, cause_data in results.items():
-            for cause_key, p_value in cause_data.items(): # This structure needs to match actual `results`
-                if p_value < parameter.alpha: # Simple threshold
-                    if effect_key not in exog_map:
-                        exog_map[effect_key] = []
-                    exog_map[effect_key].append(cause_key)
+    exog_map = {}
+    if isinstance(results, pd.DataFrame):
+        exog_map = identify_significant_exog(results, parameter.alpha)
 
-    return results, exog_map
+    return results if isinstance(results, pd.DataFrame) else pd.DataFrame(), exog_map
 
 
 # ============================================================
@@ -424,15 +495,21 @@ def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_gar
         log_stream.write("[WARN] Data log return atau fitted VARX/ARX models kosong. Melewati peramalan.\n")
         combined_forecasts_with_intervals = {}
     else:
-        combined_forecasts_with_intervals = safe_run("Generate Combined Forecasts", log_stream, auto_varx_forecast,
-                                                    fitted_varx_models=models, # Should be models by interval
-                                                    # fitted_dcc_garch_models=fitted_dcc_garch_models, # Pass only relevant DCC-GARCH for forecast
-                                                    combined_log_returns_dict=log_returns_dict, # Needs to be dict by TF
-                                                    final_stationarized_fred_data=cleaned_fred_data, # Only relevant for D1
-                                                    exog_map=exog_map, # Exog map for VARX, but structure needs to be MTF
-                                                    forecast_horizon=parameter.FORECAST_HORIZON, # Use parameter.FORECAST_HORIZON
-                                                    confidence_level=parameter.CONFIDENCE_LEVEL,
-                                                    verbose=True)
+        try:
+            # auto_varx_forecast tidak memakai kontrak safe_run (tidak menerima log_stream sebagai argumen pertama)
+            cleaned_fred_for_forecast = cleaned_fred_data if isinstance(cleaned_fred_data, dict) else {}
+            combined_forecasts_with_intervals = auto_varx_forecast(
+                combined_log_returns_dict=log_returns_dict,
+                fitted_models=models,
+                significant_pair_exog_map=exog_map or {},
+                final_stationarized_fred_data=cleaned_fred_for_forecast,
+                forecast_horizon=parameter.FORECAST_HORIZON,
+                verbose=True,
+            )
+        except Exception as e:
+            log_stream.write(f"[ERROR] Generate Combined Forecasts gagal: {e}\n")
+            traceback.print_exc(file=log_stream)
+            combined_forecasts_with_intervals = {}
 
     log_stream.write("\n[OK] Peramalan gabungan selesai. Hasil disimpan dalam dictionary 'combined_forecasts_with_intervals'.\n")
 
@@ -464,7 +541,7 @@ def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_gar
     if restored_price_forecasts_with_intervals:
         for pair_name, forecast_df in restored_price_forecasts_with_intervals.items():
             log_stream.write(f"\n--- Restorasi Harga Peramalan untuk Pair: {pair_name} (OHLC) ---\n")
-            if not forecast_df.empty:
+            if isinstance(forecast_df, pd.DataFrame) and not forecast_df.empty:
                 log_stream.write(forecast_df.head().to_string() + "\n")
             else:
                 log_stream.write("DataFrame peramalan harga kosong.\n")
@@ -504,7 +581,7 @@ def save_pipeline_outputs_to_file(filepath, execution_log, model_summary_df, com
         if restored_price_forecasts:
             for pair_name, forecast_df in restored_price_forecasts.items():
                 f.write(f"--- Restored Price Forecast for Pair: {pair_name} (OHLC) ---\n")
-                if not forecast_df.empty:
+                if isinstance(forecast_df, pd.DataFrame) and not forecast_df.empty:
                     f.write(forecast_df.to_string())
                 else:
                     f.write("Empty restored price forecast DataFrame.\n")
@@ -554,15 +631,13 @@ def main():
                                      parameter.USE_LOCAL_CSV_FOR_PAIRS,
                                      parameter.LOCAL_CSV_FILEPATH)
 
-    # Freshness check pada timeframe terkecil (M1)
-    # The check_data_freshness function expects the full mtf_base_dfs dictionary, not just mtf_base_dfs['M1']
-    current_execution_log = log_stream.getvalue()
-    if not safe_run("Cek Data Freshness", log_stream, check_data_freshness,
-                    mtf_base_dfs, datetime.now(timezone.utc)): # Pass the full dict
-        log_stream.write("[ERROR] Data M1 tidak segar. Berhenti.\n")
-        # Ensure log is captured before early exit
-        current_execution_log += log_stream.getvalue()
-        return (run_id, {}, None, None, {}, {}, pd.DataFrame(), {}, pd.DataFrame(), {}, {}, {}, {}, current_execution_log, pd.DataFrame(), {}) # Return empty structures but with full log
+    # Freshness check hanya untuk monitoring, tidak menghentikan proses training
+    safe_run("Cek Data Freshness", log_stream, check_data_freshness,
+             mtf_base_dfs, datetime.now(timezone.utc))
+
+    # Selaraskan seluruh timeframe ke common close agar horizon observasi konsisten
+    mtf_base_dfs = safe_run("Align MTF to Common Close", log_stream, align_mtf_data_to_common_close,
+                            mtf_base_dfs) or mtf_base_dfs
 
     # === 3. PREPROCESSING MTF ===
     mtf_log_returns = {}
@@ -572,8 +647,13 @@ def main():
 
     for tf, b_dfs in mtf_base_dfs.items():
         if not b_dfs: continue
-        # Call preprocess_data_tf, which should return log_returns_dict, cleaned_fred_for_tf, combined_df (for cross-asset exog)
-        log_returns_tf, cleaned_fred_tf, combined_log_returns_tf = safe_run(f"Preprocess {tf}", log_stream, preprocess_data_tf, b_dfs, fred_df, fred_meta, tf)
+        # Call preprocess_data_tf, which should return (log_returns_dict, cleaned_fred_for_tf, combined_df)
+        preprocess_result = safe_run(f"Preprocess {tf}", log_stream, preprocess_data_tf, b_dfs, fred_df, fred_meta, tf)
+        if not preprocess_result or not isinstance(preprocess_result, tuple) or len(preprocess_result) != 3:
+            log_stream.write(f"[WARN] Preprocess {tf} tidak mengembalikan tuple 3 elemen. Layer {tf} dilewati.\n")
+            continue
+
+        log_returns_tf, cleaned_fred_tf, combined_log_returns_tf = preprocess_result
 
         if log_returns_tf is not None:
             mtf_log_returns[tf] = log_returns_tf
@@ -590,13 +670,19 @@ def main():
     ensemble_results = {}
     all_summaries = []
     mtf_exog_maps = {}
+    granger_results = pd.DataFrame()
 
     for tf in ['D1', 'H1']:
         log_stream.write(f"\n[PROCESS] Analisis & Fitting Layer {tf}...\n")
 
         # Granger Test: Only FRED data should be used as exogenous for D1
-        granger_results, exog_map_tf = safe_run(f"Granger {tf}", log_stream, run_granger_all,
+        granger_result = safe_run(f"Granger {tf}", log_stream, run_granger_all,
                                mtf_log_returns.get(tf, {}), cleaned_fred_combined_df if tf == 'D1' else {}, timeframe_label=tf)
+        if not granger_result or not isinstance(granger_result, tuple) or len(granger_result) != 2:
+            log_stream.write(f"[WARN] Granger {tf} tidak mengembalikan tuple 2 elemen. Eksogen dianggap kosong.\n")
+            granger_results, exog_map_tf = pd.DataFrame(), {}
+        else:
+            granger_results, exog_map_tf = granger_result
         mtf_exog_maps[tf] = exog_map_tf # Store the exog_map for the current timeframe
 
         # Prepare combined exogenous pool for model fitting for this TF
@@ -609,7 +695,7 @@ def main():
         for other_tf, other_log_returns_df in mtf_exog_pool.items():
             # Example: H1 can use D1 log returns as exog, M1 can use H1 as exog
             # This logic needs to be refined based on actual cross-timeframe exog strategy
-            if other_log_returns_df is not None and not other_log_returns_df.empty:
+            if isinstance(other_log_returns_df, pd.DataFrame) and not other_log_returns_df.empty:
                 current_tf_exog_pool = pd.concat([current_tf_exog_pool, other_log_returns_df], axis=1)
 
         current_tf_exog_pool = current_tf_exog_pool.loc[:,~current_tf_exog_pool.columns.duplicated()].ffill().dropna(how='all')
@@ -629,7 +715,9 @@ def main():
 
     # 5. Setup Lapisan M1 (Kalman)
     if 'M1' in mtf_base_dfs: # Kalman filter is applied directly to M1 raw data
-        kalman_models_m1 = safe_run("Setup Kalman Filter for M1", log_stream, setup_kalman_filter, log_stream, mtf_base_dfs['M1'])
+        m1_pairs = mtf_base_dfs.get('M1', {})
+        m1_df = next((df for df in m1_pairs.values() if isinstance(df, pd.DataFrame) and not df.empty), None)
+        kalman_models_m1 = safe_run("Setup Kalman Filter for M1", log_stream, setup_kalman_filter_compat, m1_df) if m1_df is not None else None
         if kalman_models_m1 is not None:
             ensemble_results['M1'] = kalman_models_m1
 
