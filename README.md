@@ -1,12 +1,12 @@
 ### Ringkasan Proyek CASSANDRA: Multi-Timeframe VARX-GARCH Ensemble
 
 **Tujuan Utama Proyek:**
-CASSANDRA adalah sistem perdagangan algoritmik berbasis statistik yang dirancang untuk menggabungkan model VARX (Vector Autoregression with Exogenous Variables), DCC-GARCH, dan Kalman Filter. Proyek ini mengadopsi arsitektur hibrida, di mana *Heavy Training* dilakukan di Google Colab, sementara *Real-time Adaptation* dilakukan di VPS menggunakan Recursive Least Squares (RLS).
+CASSANDRA adalah sistem perdagangan algoritmik berbasis statistik yang dirancang untuk menggabungkan model VARX (Vector Autoregression with Exogenous Variables), DCC-GARCH, dan Kalman Filter. Proyek ini mengadopsi arsitektur hibrida, di mana *Heavy Training* dilakukan di Google Colab, sementara anda juga bisa nenggunakan hasil models.pkl untuk *Real-time Adaptation* lakukan di VPS menggunakan Recursive Least Squares (RLS) atau algoritma adaptif lainnya.
 
-**Strategi Engineering & Modifikasi Pipeline Tingkat Lanjut:**
+**New update Strategi Engineering & Modifikasi Pipeline Tingkat Lanjut:**
 Modifikasi utama pada pipeline standar adalah pengintegrasian sistem Multi-Timeframe (MTF) yang komprehensif, dengan pilar-pilar berikut:
 
-1.  **Arsitektur Multi-Timeframe (Three-Layer Engine):** Sistem ini tidak lagi mengandalkan satu model tunggal, melainkan tiga lapisan spesialisasi:
+1.  **Arsitektur Multi-Timeframe (Three-Layer Engine):** Sistem ini tidak lagi mengandalkan satu model tunggal, melainkan tiga lapisan spesialisasi yang dapat di sesuaikan dengan kebutuhan analisis:
     *   **Layer D1 (Global Compass):** Mengintegrasikan data makro FRED (Suku Bunga, Inflasi, S&P500) dengan VARX (menggunakan `maxlags=1`) untuk menentukan arah tren jangka panjang.
     *   **Layer H1 (Tactical Radar):** Berfokus pada hubungan Cross-Asset (misalnya, pengaruh Emas terhadap AUD/USD) menggunakan VARX (menggunakan `maxlags=5`) untuk menangkap momentum intraday. DCC-GARCH digunakan di sini untuk menghitung matriks korelasi dinamis dan volatilitas.
     *   **Layer M1 (Execution Sniper):** Menggunakan Kalman Filter untuk menyaring *market noise* dan secara kontinu mengestimasi "harga asli" di tengah volatilitas menit ke menit.
