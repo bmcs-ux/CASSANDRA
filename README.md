@@ -1,0 +1,43 @@
+## Gambaran Umum Proyek: Pipeline Peramalan Keuangan Multi-Timeframe
+
+Proyek ini mengimplementasikan pipeline peramalan keuangan multi-timeframe (MTF) yang kuat, dirancang untuk menganalisis berbagai instrumen keuangan (FX, Komoditas, Indeks) dan indikator makroekonomi (data FRED). Pipeline ini mengintegrasikan akuisisi data, pra-pemrosesan ekstensif, pemodelan ekonometrik canggih (Granger Causality, VARX/ARX, DCC-GARCH, Kalman Filter), dan peramalan, yang secara khusus disesuaikan untuk aplikasi di lingkungan Google Colab.
+
+### Fitur Utama:
+
+1.  **Desain Modular**: Pipeline ini distrukturkan ke dalam modul-modul yang berbeda dan dapat dimuat ulang (`parameter`, `raw`, `preprocessing`, `fitted_models`, `forecast`, `restored`), memfasilitasi pengembangan dan pemeliharaan yang mudah di Colab.
+2.  **Penanganan Data Multi-Timeframe**: Mendukung pemrosesan data secara simultan di berbagai timeframe (misalnya, D1, H1, M1) untuk analisis pasar yang komprehensif dan inferensi kausal lintas-timeframe.
+3.  **Akuisisi Data**: 
+    *   **Data Pasangan Keuangan**: Menggunakan `raw.pair_raw.load_base_data_mtf` untuk mengambil data historis OHLCV untuk pasangan yang ditentukan (misalnya, GBPUSD, XAUUSD, US500).
+    *   **Data Makroekonomi (FRED)**: Mengintegrasikan `raw.makro_raw.download_macro_data` untuk mengambil seri FRED yang relevan, penting untuk analisis fundamental dan penyertaan variabel eksogen dalam model.
+4.  **Pra-pemrosesan Ekstensif**: 
+    *   `preprocessing.log_return`: Menerapkan log return ke harga untuk stasioneritas.
+    *   `preprocessing.fred_transform`: Mentransformasi data FRED (log-return, log-diff, level-and-diff) berdasarkan kebijakan.
+    *   `preprocessing.handle_missing`: Mengelola nilai yang hilang dalam data FRED.
+    *   `preprocessing.combine_data`: Menggabungkan berbagai aliran data.
+    *   `preprocessing.stationarity_test`: Menguji dan menstasionerkan data deret waktu.
+5.  **Pemodelan Ekonometrik Tingkat Lanjut**: 
+    *   `fitted_models.granger`: Melakukan uji kausalitas Granger untuk mengidentifikasi variabel eksogen yang signifikan secara statistik untuk model VARX.
+    *   `fitted_models.def_varx`: Mengimplementasikan fitting model VARX/ARX untuk peramalan variabel endogen.
+    *   `fitted_models.kalman_filter`: Mengintegrasikan filter Kalman untuk pemodelan ruang-keadaan, terutama untuk data frekuensi yang lebih tinggi (misalnya, M1).
+    *   `fitted_models.dcc_garch_process`: Memfitting model DCC-GARCH ke residu dari VARX/ARX untuk menangkap korelasi dan volatilitas bersyarat dinamis.
+6.  **Peramalan & Restorasi**: 
+    *   `forecast.auto_varx_forecast`: Menghasilkan peramalan multi-langkah ke depan dengan interval kepercayaan dari model VARX/ARX yang sudah di-fitting.
+    *   `restored.restore_log_returns_to_price`: Mengkonversi peramalan log-return kembali ke peramalan harga yang dapat diinterpretasikan (OHLC).
+7.  **Penanganan Error & Pencatatan yang Kuat**: Menggunakan wrapper `safe_run` untuk setiap langkah pipeline untuk menangani pengecualian secara elegan dan menyediakan pencatatan yang rinci, memastikan kelangsungan pipeline dan kemampuan diagnostik.
+8.  **Konfigurasi melalui `parameter.py`**: Semua parameter penting, seperti kunci API FRED, ID seri, daftar pasangan, periode lookback, lag model, dan tingkat kepercayaan, dipusatkan dalam `parameter.py` untuk modifikasi yang mudah.
+
+### Alur Pipeline:
+
+Skrip `main.py` mengatur urutan berikut:
+
+1.  **Inisialisasi**: Menyiapkan pencatatan dan mendefinisikan ID eksekusi.
+2.  **Pengunduhan Data FRED**: Mengambil data makroekonomi, menerapkan pemeriksaan placeholder untuk kunci API.
+3.  **Pemuatan Data MTF**: Mengunduh atau memuat data historis untuk timeframe D1, H1, dan M1.
+4.  **Penyelarasan Data**: Menyelaraskan semua timeframe ke timestamp penutupan umum untuk memastikan horizon observasi yang konsisten.
+5.  **Pra-pemrosesan**: Menerapkan log return, transformasi FRED, dan menangani data yang hilang di seluruh timeframe.
+6.  **Uji Kausalitas Granger**: Mengidentifikasi variabel eksogen yang signifikan untuk model setiap timeframe.
+7.  **Fitting Model (VARX/ARX)**: Memfitting model ekonometrik untuk timeframe D1 dan H1, memanfaatkan variabel eksogen yang teridentifikasi.
+8.  **Pengaturan Filter Kalman**: Menginisialisasi filter Kalman untuk data M1.
+9.  **Fitting DCC-GARCH**: Memfitting model DCC-GARCH ke residu dari model VARX/ARX (terutama untuk H1) untuk pemodelan volatilitas.
+10. **Pengemasan untuk VPS**: Menserialisasi model yang di-fitting, harga aktual terakhir, dan peta eksogen untuk penyebaran atau penggunaan lebih lanjut.
+11. **Peramalan & Restorasi**: Menghasilkan dan merestorasi peramalan harga dengan interval kepercayaan untuk tampilan dan analisis.
