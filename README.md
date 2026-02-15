@@ -77,4 +77,27 @@ Skrip `main.py` mengatur urutan berikut:
 10. **Pengemasan untuk VPS**: Menserialisasi model yang di-fitting, harga aktual terakhir, dan peta eksogen untuk penyebaran atau penggunaan lebih lanjut.
 11. **Peramalan & Restorasi**: Menghasilkan dan merestorasi peramalan harga dengan interval kepercayaan untuk tampilan dan analisis.
 
+## Kegunaan Pipeline CASSANDRA
+
+Pipeline CASSANDRA dirancang sebagai sistem peramalan keuangan yang komprehensif dan adaptif, dengan kegunaan utama sebagai berikut:
+
+1.  **Analisis Pasar Multi-Timeframe yang Mendalam**: Dengan memproses data dari berbagai kerangka waktu (harian, jam, menit) secara bersamaan, CASSANDRA memungkinkan pemahaman yang lebih kaya tentang dinamika pasar. Ini membantu mengidentifikasi tren jangka panjang, pergerakan intraday, dan hubungannya, yang sering kali terlewatkan jika hanya menganalisis satu timeframe.
+2.  **Identifikasi Hubungan Kausal (Granger Causality)**: Kemampuan untuk mengidentifikasi variabel makroekonomi atau aset lain yang 'menyebabkan' pergerakan harga aset target adalah kekuatan besar. Ini memberikan wawasan tentang pendorong pasar yang mendasari, bukan hanya korelasi.
+3.  **Peramalan Harga yang Akurat dengan Interval Kepercayaan**: Dengan menggunakan model ekonometrik canggih seperti VARX/ARX dan Kalman Filter, pipeline ini dapat menghasilkan peramalan harga di masa depan. Yang lebih penting, adanya interval kepercayaan memungkinkan pengguna untuk memahami tingkat ketidakpastian dalam peramalan tersebut, yang sangat krusial dalam pengambilan keputusan.
+4.  **Pemodelan Volatilitas (DCC-GARCH)**: Kemampuan untuk memodelkan volatilitas pasar sangat penting bagi manajemen risiko. DCC-GARCH tidak hanya memperkirakan volatilitas, tetapi juga korelasi antara aset, yang esensial untuk diversifikasi portofolio dan strategi lindung nilai.
+5.  **Fleksibilitas dan Skalabilitas**: Desain modular dan penggunaan Colab memudahkan adaptasi pipeline untuk aset, indikator, atau model yang berbeda. Ini berarti CASSANDRA dapat terus berkembang seiring dengan kebutuhan analisis.
+6.  **Pencatatan dan Debugging yang Efisien**: Fitur `safe_run` memastikan bahwa meskipun ada error di satu tahapan, pipeline dapat terus berjalan dan mencatat masalah tersebut. Ini mempercepat proses pengembangan dan pemeliharaan.
+
+## Potensi Pemanfaatan dalam Bidang Ekonomi
+
+Dalam bidang ekonomi, pipeline CASSANDRA memiliki potensi pemanfaatan yang signifikan:
+
+1.  **Peramalan Makroekonomi**: Model ini dapat digunakan untuk meramalkan indikator makroekonomi penting seperti inflasi, suku bunga, pertumbuhan PDB, atau tingkat pengangguran, dengan menggabungkan data FRED yang relevan. Peramalan yang lebih akurat membantu pembuat kebijakan dalam perencanaan ekonomi.
+2.  **Analisis Transmisi Kebijakan**: Dengan mengidentifikasi hubungan kausalitas (Granger), ekonom dapat mempelajari bagaimana perubahan dalam satu variabel ekonomi (misalnya, suku bunga yang ditetapkan bank sentral) mempengaruhi variabel lain (misalnya, investasi, konsumsi, atau harga aset). Ini krusial untuk mengevaluasi efektivitas kebijakan moneter atau fiskal.
+3.  **Manajemen Risiko Ekonomi dan Keuangan**: Kemampuan CASSANDRA untuk memodelkan volatilitas dan korelasi antar-aset sangat relevan untuk bank sentral, lembaga keuangan, atau pemerintah dalam mengelola risiko sistemik, memantau stabilitas keuangan, atau merancang instrumen keuangan yang lebih tangguh.
+4.  **Penelitian dan Pengembangan Model Ekonomi**: Kerangka kerja modular CASSANDRA dapat menjadi platform yang sangat baik bagi para peneliti untuk menguji hipotesis ekonomi baru, membandingkan kinerja model peramalan yang berbeda, atau mengintegrasikan teori ekonomi ke dalam model empiris.
+5.  **Perencanaan Investasi dan Kebijakan Alokasi Aset**: Peramalan harga aset (misalnya, indeks saham, komoditas, nilai tukar mata uang) beserta interval kepercayaannya sangat berharga bagi investor institusi, manajer dana, atau bahkan pemerintah yang mengelola dana kekayaan negara, untuk membuat keputusan alokasi aset yang lebih terinformasi.
+6.  **Peringatan Dini Krisis**: Dengan memantau pergerakan harga aset, volatilitas, dan hubungan kausal dengan indikator makroekonomi, CASSANDRA dapat membantu dalam membangun sistem peringatan dini untuk potensi krisis keuangan atau ekonomi.
+
+
 **Status Sistem:** currently under development! CASSANDRA is an advanced version of the VARX_REGRESION Project. The latest version is experimental! Current Version: 2.0 (Multi-Timeframe Integrated).
