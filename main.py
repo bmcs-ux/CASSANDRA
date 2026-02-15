@@ -35,7 +35,7 @@ from preprocessing.combine_data import combine_log_returns
 from preprocessing.stationarity_test import test_and_stationarize_data
 
 # 3. Model Engine (Granger, VARX, Kalman)
-from fitted_models.granger import run_granger_tests, identify_significant_exog
+from fitted_models.granger import run_granger_tests, identify_significant_exog # Import the actual Granger test function
 from fitted_models.def_varx import fit_varx_or_arx    # Corrected import: use fit_varx_or_arx
 from fitted_models.kalman_filter import setup_kalman_filter
 
@@ -171,33 +171,45 @@ def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
 # 2\" PREPROCESSING
 # ============================================================
 
+
 def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
     """
-    Preprocessing khusus untuk satu timeframe tertentu.
+    Preprocessing khusus untuk satu timeframe tertentu dengan penanganan
+    Truth Value DataFrame yang aman.
     """
     log_stream.write(f"\n--- Preprocessing Timeframe: {tf_label} ---\n")
 
-    # 1. Log Return
-    log_returns_raw = safe_run(f"Log Return {tf_label}", log_stream, apply_log_return_to_price, b_dfs) or {}
-    log_returns_dict = safe_run(f"Combine Dict {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='dict') or {}
+    # 1. Hitung Log Return secara mentah
+    # Gunakan pengecekan eksplisit 'is not None' alih-alih 'or {}'
+    res_raw = safe_run(f"Log Return {tf_label}", log_stream, apply_log_return_to_price, b_dfs)
+    log_returns_raw = res_raw if res_raw is not None else {}
+
+    # 2. Gabungkan hasil ke dalam Dictionary
+    res_dict = safe_run(f"Combine Dict {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='dict')
+    log_returns_dict = res_dict if res_dict is not None else {}
+
+    # 3. Gabungkan hasil ke dalam DataFrame (Cross-Asset Exog Pool)
+    # Ini adalah bagian yang paling krusial untuk menghindari ValueError
     combined_df_res = safe_run(f"Combine DF {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='df')
-    combined_df = combined_df_res if isinstance(combined_df_res, pd.DataFrame) else pd.DataFrame()
 
-    # 2. FRED Transform (Hanya jika D1 dan data FRED tersedia)
-    cleaned_fred = {} # Placeholder, will be populated if D1
+    if isinstance(combined_df_res, pd.DataFrame):
+        combined_df = combined_df_res
+    else:
+        combined_df = pd.DataFrame()
+
+    cleaned_fred_df = None
     if tf_label == 'D1' and fred_df is not None:
-        transformed = safe_run("Transformasi FRED", log_stream, apply_fred_transformations, fred_df, parameter.FRED_SERIES, fred_meta) or {}
-        cleaned_fred_raw = safe_run("Handle Missing FRED", log_stream, handle_missing_fred_data, transformed, missing_threshold=0.3) or {}
+        # 1. Transformasi (Log-Return/Diff)
+        fred_transform = safe_run(f"FRED transform {tf_label}", log_stream, apply_fred_transformations, fred_df, parameter.FRED_SERIES, fred_meta)
 
-        # Stasioneritas
-        # For FRED data, we want to stationarize it based on its own properties, not log_returns_dict
-        # Assuming test_and_stationarize_data can handle a single DataFrame for FRED
-        stationarity_res_fred = safe_run("Uji Stasioneritas FRED", log_stream, test_and_stationarize_data, cleaned_fred_raw, {}, parameter.alpha) # Pass empty dict for log_returns
-        if stationarity_res_fred:
-            cleaned_fred = stationarity_res_fred[0] # Assuming it returns the stationary FRED data
+        if fred_transform is None:
+            log_stream.write(f" [WARN] Gagal melakukan transformasi FRED data untuk timeframe {tf_label}\n")
+        else:
+            # 2. Penanganan Missing Data (Pembersihan Akhir)
+            # PASTIKAN log_stream dimasukkan di sini
+            cleaned_fred_df = safe_run(f"Clean FRED {tf_label}", log_stream, handle_missing_fred_data, fred_transform, missing_threshold=30)
 
-    return log_returns_dict, cleaned_fred, combined_df
-
+    return cleaned_fred_df
 
 def setup_kalman_filter_compat(log_stream, df_m1):
     """Kompatibilitas untuk dua signature setup_kalman_filter (baru/lama)."""
@@ -223,7 +235,7 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
     # 1. Tentukan Target (semua pair dalam timeframe ini)
     granger_targets = {}
     for pair, df in log_returns.items():
-        if isinstance(df, pd.DataFrame) and not df.empty:
+        if not df.empty:
              log_return_cols = [col for col in df.columns if col.endswith('_Log_Return')]
              for col in log_return_cols:
                  granger_targets[f"{pair}_{col}"] = df[[col]].dropna()
@@ -242,18 +254,26 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
     all_potential_causes = {**granger_exogs, **granger_targets}
 
     # Jalankan uji Granger
-    results = safe_run(f"Granger Test [{timeframe_label}]", log_stream, run_granger_tests,
-                       data_dict=granger_targets,
-                       exogenous_data_dict=all_potential_causes,
-                       maxlag_test=parameter.maxlag_test,
-                       alpha=parameter.alpha)
+    # Di dalam main.py bagian 4 (FITTING)
+    # -----------------------------------
 
-    exog_map = {}
-    if isinstance(results, pd.DataFrame):
-        exog_map = identify_significant_exog(results, parameter.alpha)
+    # Jalankan uji Granger
+    granger_df = safe_run(f"Granger Test {timeframe_label}", log_stream, run_granger_tests,
+                          log_returns.get(timeframe_label, {}),
+                          maxlag_test=parameter.maxlag_granger,
+                          alpha=parameter.alpha_granger,
+                          exogenous_data_dict=cleaned_fred if timeframe_label == 'D1' else None)
 
-    return results if isinstance(results, pd.DataFrame) else pd.DataFrame(), exog_map
+    # Identifikasi variabel yang masuk ke model VARX (Exog Map)
+    # Inilah yang mencegah error "TypeError: '<' not supported"
+    exog_map_tf = safe_run(f"Map Significant Exog {timeframe_label}", log_stream, identify_significant_exog,
+                          granger_df, parameter.alpha_granger)
 
+    #mtf_exog_maps[timeframe_label] = exog_map_tf
+    if exog_map_tf:
+        log_stream.write(f"  [INFO] Exog map for {timeframe_label}: {exog_map_tf}\n")
+
+    return granger_df, exog_map_tf
 
 # ============================================================
 # 4\" MODEL FITTING
@@ -487,6 +507,7 @@ def fit_dcc_garch_models(log_stream, ensemble_results, log_returns):
 # 5\" FORECASTING & RESTORATION
 # ============================================================
 
+
 def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_garch_models, exog_map, cleaned_fred_data, base_data):
     """Performs forecasting using fitted models and restores forecasts to price scale."""
     log_stream.write(f"\n[INFO] Melakukan peramalan ({parameter.FORECAST_HORIZON} langkah ke depan) dengan interval kepercayaan...\n") # Use parameter.FORECAST_HORIZON
@@ -495,21 +516,15 @@ def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_gar
         log_stream.write("[WARN] Data log return atau fitted VARX/ARX models kosong. Melewati peramalan.\n")
         combined_forecasts_with_intervals = {}
     else:
-        try:
-            # auto_varx_forecast tidak memakai kontrak safe_run (tidak menerima log_stream sebagai argumen pertama)
-            cleaned_fred_for_forecast = cleaned_fred_data if isinstance(cleaned_fred_data, dict) else {}
-            combined_forecasts_with_intervals = auto_varx_forecast(
-                combined_log_returns_dict=log_returns_dict,
-                fitted_models=models,
-                significant_pair_exog_map=exog_map or {},
-                final_stationarized_fred_data=cleaned_fred_for_forecast,
-                forecast_horizon=parameter.FORECAST_HORIZON,
-                verbose=True,
-            )
-        except Exception as e:
-            log_stream.write(f"[ERROR] Generate Combined Forecasts gagal: {e}\n")
-            traceback.print_exc(file=log_stream)
-            combined_forecasts_with_intervals = {}
+        combined_forecasts_with_intervals = safe_run("Generate Combined Forecasts", log_stream, auto_varx_forecast,
+                                                    fitted_varx_models=models, # Should be models by interval
+                                                    # fitted_dcc_garch_models=fitted_dcc_garch_models, # Pass only relevant DCC-GARCH for forecast
+                                                    combined_log_returns_dict=log_returns_dict, # Needs to be dict by TF
+                                                    final_stationarized_fred_data=cleaned_fred_data, # Only relevant for D1
+                                                    exog_map=exog_map, # Exog map for VARX, but structure needs to be MTF
+                                                    forecast_horizon=parameter.FORECAST_HORIZON, # Use parameter.FORECAST_HORIZON
+                                                    confidence_level=parameter.CONFIDENCE_LEVEL,
+                                                    verbose=True)
 
     log_stream.write("\n[OK] Peramalan gabungan selesai. Hasil disimpan dalam dictionary 'combined_forecasts_with_intervals'.\n")
 
@@ -541,7 +556,7 @@ def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_gar
     if restored_price_forecasts_with_intervals:
         for pair_name, forecast_df in restored_price_forecasts_with_intervals.items():
             log_stream.write(f"\n--- Restorasi Harga Peramalan untuk Pair: {pair_name} (OHLC) ---\n")
-            if isinstance(forecast_df, pd.DataFrame) and not forecast_df.empty:
+            if not forecast_df.empty:
                 log_stream.write(forecast_df.head().to_string() + "\n")
             else:
                 log_stream.write("DataFrame peramalan harga kosong.\n")
@@ -581,7 +596,7 @@ def save_pipeline_outputs_to_file(filepath, execution_log, model_summary_df, com
         if restored_price_forecasts:
             for pair_name, forecast_df in restored_price_forecasts.items():
                 f.write(f"--- Restored Price Forecast for Pair: {pair_name} (OHLC) ---\n")
-                if isinstance(forecast_df, pd.DataFrame) and not forecast_df.empty:
+                if not forecast_df.empty:
                     f.write(forecast_df.to_string())
                 else:
                     f.write("Empty restored price forecast DataFrame.\n")
@@ -670,7 +685,6 @@ def main():
     ensemble_results = {}
     all_summaries = []
     mtf_exog_maps = {}
-    granger_results = pd.DataFrame()
 
     for tf in ['D1', 'H1']:
         log_stream.write(f"\n[PROCESS] Analisis & Fitting Layer {tf}...\n")
