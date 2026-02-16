@@ -27,11 +27,30 @@ def download_macro_data(log_stream, FRED_API_KEY, FRED_SERIES, lookback_days): #
 
     log_stream.write(f"[INFO] Mengambil data dari {start_date.date()} hingga {end_date.date()}\n") # Changed print to log_stream.write
 
-    fred = Fred(api_key=FRED_API_KEY)
+    log_stream.write(f"DEBUG: Type of FRED_SERIES is {type(FRED_SERIES)}\n")
+    log_stream.write(f"DEBUG: Content: {str(FRED_SERIES)[:100]}\n")
+
+    # Jika FRED_SERIES adalah list, konversi menjadi dict untuk menghindari error .items()
+    if isinstance(FRED_SERIES, list):
+        log_stream.write("[WARN] FRED_SERIES terdeteksi sebagai LIST. Mengonversi ke dictionary...\n")
+        series_dict = {item: item for item in FRED_SERIES}
+    elif isinstance(FRED_SERIES, dict):
+        series_dict = FRED_SERIES
+    else:
+        log_stream.write(f"[ERROR] Tipe data FRED_SERIES tidak dikenal: {type(FRED_SERIES)}\n")
+        return pd.DataFrame(), []
+
+    try:
+        fred = Fred(api_key=FRED_API_KEY)
+    except Exception as e:
+        log_stream.write(f"[ERROR] Gagal inisialisasi FRED API: {e}\n")
+        return pd.DataFrame(), []
+
+    #fred = Fred(api_key=FRED_API_KEY)
     fred_data = []
     fred_metadata = []
 
-    for name, series_id in FRED_SERIES.items():
+    for name, series_id in series_dict.items():
         try:
             # 1′ Ambil metadata
             info = fred.get_series_info(series_id)

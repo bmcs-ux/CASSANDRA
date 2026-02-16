@@ -1,3 +1,4 @@
+
 import os
 from datetime import timedelta
 
@@ -28,27 +29,29 @@ base_interval = '1d'
 
 # FRED API
 # Catatan: tetap bisa dioverride dari environment agar aman di deployment.
+# Ganti 'YOUR_ACTUAL_FRED_API_KEY_HERE' dengan kunci FRED API Anda yang sebenarnya.
+# Anda bisa mendapatkannya dari https://fred.stlouisfed.org/docs/api/api_key.html
 FRED_API_KEY = os.getenv('FRED_API_KEY', '987d18495a386165f0be970f8a733562')
 FRED_SERIES = {
     'BAMLEMRECRPIEMEASYTW': 'CPALTT01USM657N',
     'BAMLH0A0HYM2SYTW': 'PCEPILFE',
     'RRPONTSYD': 'UNRATE',
-    'DGS10': 'GDP',
-    'US500': 'US500',
+    'GDP': 'GDP', # Changed from 'DGS10': 'GDP' for clarity and consistency
     'EFFRVOL': 'EFFRVOL',
     'T5YIE': 'T5YIE',
     'DFF': 'DFF',
+    'DGS10': 'DGS10', # Added DGS10 explicitly as a FRED series if needed
 }
 
 FRED_TRANSFORM_POLICY = {
-    'SP500': 'log_return',
     'BAMLH0A0HYM2SYTW': 'log_return',
     'BAMLEMRECRPIEMEASYTW': 'log_return',
     'EFFRVOL': 'log_diff',
     'RRPONTSYD': 'log_diff',
-    'DGS10': 'level_and_diff',
+    'GDP': 'level_and_diff', # Changed from 'DGS10': 'level_and_diff'
     'T5YIE': 'level_and_diff',
     'DFF': 'level_and_diff',
+    'DGS10': 'level_and_diff', # Added policy for DGS10
 }
 
 # Local CSV

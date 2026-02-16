@@ -180,13 +180,20 @@ def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
     log_stream.write(f"\n--- Preprocessing Timeframe: {tf_label} ---\n")
 
     # 1. Hitung Log Return secara mentah
-    # Gunakan pengecekan eksplisit 'is not None' alih-alih 'or {}'
     res_raw = safe_run(f"Log Return {tf_label}", log_stream, apply_log_return_to_price, b_dfs)
     log_returns_raw = res_raw if res_raw is not None else {}
+    for pair_name, df in log_returns_raw.items():
+        if not df.empty:
+            log_stream.write(f"[DEBUG] Columns in log_returns_raw for {pair_name}: {list(df.columns)}\n")
 
     # 2. Gabungkan hasil ke dalam Dictionary
-    res_dict = safe_run(f"Combine Dict {tf_label}", log_stream, combine_log_returns, log_returns_raw, return_type='dict')
-    log_returns_dict = res_dict if res_dict is not None else {}
+    # Menggunakan log_returns_raw secara langsung untuk memastikan semua kolom log return tetap ada
+    log_returns_dict = log_returns_raw
+
+    for pair_name, df in log_returns_dict.items():
+        if not df.empty:
+            log_stream.write(f"[DEBUG] Columns in log_returns_dict (after direct assignment) for {pair_name}: {list(df.columns)}\n")
+
 
     # 3. Gabungkan hasil ke dalam DataFrame (Cross-Asset Exog Pool)
     # Ini adalah bagian yang paling krusial untuk menghindari ValueError
@@ -194,8 +201,10 @@ def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
 
     if isinstance(combined_df_res, pd.DataFrame):
         combined_df = combined_df_res
+        log_stream.write(f"[DEBUG] Combined log returns (DF) for {tf_label}. Columns: {list(combined_df.columns) if not combined_df.empty else 'Empty'}\n")
     else:
         combined_df = pd.DataFrame()
+        log_stream.write(f"[DEBUG] Combined log returns (DF) for {tf_label} is empty.\n")
 
     cleaned_fred_df = None
     if tf_label == 'D1' and fred_df is not None:
@@ -209,7 +218,7 @@ def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
             # PASTIKAN log_stream dimasukkan di sini
             cleaned_fred_df = safe_run(f"Clean FRED {tf_label}", log_stream, handle_missing_fred_data, fred_transform, missing_threshold=30)
 
-    return cleaned_fred_df
+    return log_returns_dict, cleaned_fred_df, combined_df
 
 def setup_kalman_filter_compat(log_stream, df_m1):
     """Kompatibilitas untuk dua signature setup_kalman_filter (baru/lama)."""
@@ -258,8 +267,8 @@ def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1")
     # -----------------------------------
 
     # Jalankan uji Granger
-    granger_df = safe_run(f"Granger Test {timeframe_label}", log_stream, run_granger_tests,
-                          log_returns.get(timeframe_label, {}),
+    granger_df = safe_run(f"Granger {timeframe_label}", log_stream, run_granger_tests,
+                          log_returns, # Corrected: Pass log_returns directly
                           maxlag_test=parameter.maxlag_granger,
                           alpha=parameter.alpha_granger,
                           exogenous_data_dict=cleaned_fred if timeframe_label == 'D1' else None)
@@ -322,8 +331,11 @@ def fit_models(log_stream, log_returns_dict, exog_map, combined_fred_for_model_d
     # Pastikan tidak ada duplikasi kolom saat concat
     all_log_returns_df = pd.concat([df for df in log_returns_dict.values()], axis=1, join='outer')
     all_log_returns_df = all_log_returns_df.loc[:,~all_log_returns_df.columns.duplicated()]
+    # ffill() sebelum dropna(how='all') agar missing values dari join='outer' ditangani
+    all_log_returns_df = all_log_returns_df.ffill().dropna(how='all')
     all_available_model_exogs = pd.concat([all_available_model_exogs, all_log_returns_df], axis=1)
     all_available_model_exogs = all_available_model_exogs.loc[:,~all_available_model_exogs.columns.duplicated()].ffill().dropna(how='all')
+
 
     if all_available_model_exogs.empty:
         log_stream.write("[WARN] Tidak ada data eksogen yang tersedia setelah digabungkan dan dibersihkan. Model akan berjalan tanpa eksogen.\n")
@@ -340,11 +352,12 @@ def fit_models(log_stream, log_returns_dict, exog_map, combined_fred_for_model_d
             if match:
                 pair_name_from_endog = match.group(1)
 
+            # Simplified check: directly look for endog_full_name in the columns of the DataFrame for the pair
             if pair_name_from_endog and pair_name_from_endog in log_returns_dict:
                 df_log_return_pair = log_returns_dict[pair_name_from_endog]
-                column_in_pair_df = endog_full_name.replace(f"{pair_name_from_endog}_", "")
-                if not df_log_return_pair.empty and column_in_pair_df in df_log_return_pair.columns:
-                    endog_data_frames.append(df_log_return_pair[[column_in_pair_df]].rename(columns={column_in_pair_df: endog_full_name}))
+                # The column name in df_log_return_pair is already the full name, e.g., 'GBPUSD_Close_Log_Return'
+                if not df_log_return_pair.empty and endog_full_name in df_log_return_pair.columns:
+                    endog_data_frames.append(df_log_return_pair[[endog_full_name]]) # No need to rename, it's already the correct name
                 else:
                     log_stream.write(f"[WARN] Kolom '{endog_full_name}' tidak ditemukan di data '{pair_name_from_endog}'. Lewati.\n")
             else:
@@ -547,7 +560,7 @@ def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_gar
         restored_price_forecasts_with_intervals = {}
     else:
         restored_price_forecasts_with_intervals = safe_run("Restore Price Forecast with Intervals", log_stream, restore_log_returns_to_price,
-                                                            combined_forecasts_with_intervals, base_data, confidence_level=parameter.CONFIDENCE_LEVEL) # base_data needs to be the original OHLC for restoration
+                                                            combined_forecasts_with_intervals, base_data, confidence_level=parameter.CONFIDENCE_LEVEL)
 
 
     log_stream.write("\n[OK] Restorasi peramalan harga dengan interval kepercayaan selesai. Hasil disimpan dalam dictionary 'restored_price_forecasts_with_intervals'.\n")
@@ -569,7 +582,7 @@ def save_pipeline_outputs_to_file(filepath, execution_log, model_summary_df, com
     """Saves all important pipeline outputs to a specified file."""
     with open(filepath, 'w') as f:
         f.write("==== Pipeline Execution Log ====\n")
-        f.write(execution_log if execution_log is not None else "Execution log not available.\n") # FIX IS HERE
+        f.write(execution_log if execution_log is not None else "Execution log not available.\n")
         f.write("\n\n")
 
         f.write("==== Model Summary ====\n")
@@ -670,16 +683,26 @@ def main():
 
         log_returns_tf, cleaned_fred_tf, combined_log_returns_tf = preprocess_result
 
+        log_stream.write(f"[DEBUG] Inside main loop for tf={tf}:\n") # New debug
+        log_stream.write(f"[DEBUG] Type of cleaned_fred_tf: {type(cleaned_fred_tf)}\n") # New debug
+        if isinstance(cleaned_fred_tf, pd.DataFrame): # New debug
+            log_stream.write(f"[DEBUG] cleaned_fred_tf shape: {cleaned_fred_tf.shape}\n") # New debug
+        else: # New debug
+            log_stream.write(f"[DEBUG] cleaned_fred_tf content: {cleaned_fred_tf}\n") # New debug
+
         if log_returns_tf is not None:
             mtf_log_returns[tf] = log_returns_tf
+            log_stream.write(f"[DEBUG] mtf_log_returns[{tf}] populated with keys: {list(log_returns_tf.keys())}. Example columns for first pair: {list(log_returns_tf[next(iter(log_returns_tf))].columns) if log_returns_tf else 'N/A'}\n") # MODIFIED DEBUG PRINT
+        else:
+            log_stream.write(f"[DEBUG] log_returns_tf for {tf} was None.\n")
 
-        if tf == 'D1' and cleaned_fred_tf is not None: # Assume FRED processing is primarily for D1
+        if tf == 'D1' and isinstance(cleaned_fred_tf, pd.DataFrame): # Assume FRED processing is primarily for D1
             cleaned_fred_combined_df = cleaned_fred_tf # Store the cleaned FRED for D1 models
 
         if combined_log_returns_tf is not None:
             mtf_exog_pool[tf] = combined_log_returns_tf # Store combined log returns for potential cross-asset exog
 
-
+    log_stream.write(f"[DEBUG] Final mtf_log_returns keys: {mtf_log_returns.keys()}\n")
 
     # === 4. FITTING MULTI-TIMEFRAME ===
     ensemble_results = {}
@@ -702,8 +725,10 @@ def main():
         # Prepare combined exogenous pool for model fitting for this TF
         current_tf_exog_pool = pd.DataFrame()
         # Add FRED data if D1
-        if tf == 'D1' and cleaned_fred_combined_df is not None and not cleaned_fred_combined_df.empty:
-            current_tf_exog_pool = pd.concat([current_tf_exog_pool, cleaned_fred_combined_df], axis=1)
+        if tf == 'D1' and isinstance(cleaned_fred_combined_df, pd.DataFrame):
+            if not cleaned_fred_combined_df.empty:
+                # Tambahkan ffill() di sini agar Uji Granger tidak kosong!
+                current_tf_exog_pool = pd.concat([current_tf_exog_pool, cleaned_fred_combined_df.ffill()], axis=1)
 
         # Add cross-asset log returns from other timeframes or same timeframe if appropriate
         for other_tf, other_log_returns_df in mtf_exog_pool.items():
@@ -740,7 +765,7 @@ def main():
     fitted_dcc_garch_models = {}
     if 'H1' in ensemble_results and mtf_log_returns.get('H1'):
         # pass ensemble_results (which contains the VARX models) and raw log_returns to fit_dcc_garch_models
-        fitted_dcc_garch_models_h1 = safe_run("Fit DCC-GARCH for H1", log_stream, fit_dcc_garch_models,
+        fitted_dcc_garch_models_h1 = safe_run("Fit DCC-GARCH for H1", log_stream, fit_dcc_garch_to_residuals,
                                               ensemble_results, mtf_log_returns.get('H1'))
         if fitted_dcc_garch_models_h1: # Assuming it returns a dict of models
             fitted_dcc_garch_models['H1'] = fitted_dcc_garch_models_h1
@@ -817,6 +842,6 @@ def main():
             restored_price_forecasts_with_intervals, log_stream.getvalue(), final_summary, last_actual_prices_dict)
 
 if __name__ == "__main__":
-    # To make it available in the interactive environment without explicitly calling 'global' anywhere,
-    # we can execute the main function and then assign the results to global variables.
+    # To make it available in the interactive environment without explicitly calling 'global'
+    # anywhere, we can execute the main function and then assign the results to global variables.
     pass
