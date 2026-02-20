@@ -36,11 +36,11 @@ FRED_SERIES = {
     'BAMLEMRECRPIEMEASYTW': 'CPALTT01USM657N',
     'BAMLH0A0HYM2SYTW': 'PCEPILFE',
     'RRPONTSYD': 'UNRATE',
-    'GDP': 'GDP', # Changed from 'DGS10': 'GDP' for clarity and consistency
+    #'GDP': 'GDP', # Changed from 'DGS10': 'GDP' for clarity and consistency
     'EFFRVOL': 'EFFRVOL',
-    'T5YIE': 'T5YIE',
-    'DFF': 'DFF',
-    'DGS10': 'DGS10', # Added DGS10 explicitly as a FRED series if needed
+    #'T5YIE': 'T5YIE',
+    #'DFF': 'DFF',
+    #'DGS10': 'DGS10', # Added DGS10 explicitly as a FRED series if needed
 }
 
 FRED_TRANSFORM_POLICY = {
@@ -48,10 +48,10 @@ FRED_TRANSFORM_POLICY = {
     'BAMLEMRECRPIEMEASYTW': 'log_return',
     'EFFRVOL': 'log_diff',
     'RRPONTSYD': 'log_diff',
-    'GDP': 'level_and_diff', # Changed from 'DGS10': 'level_and_diff'
-    'T5YIE': 'level_and_diff',
-    'DFF': 'level_and_diff',
-    'DGS10': 'level_and_diff', # Added policy for DGS10
+    #'GDP': 'level_and_diff', # Changed from 'DGS10': 'level_and_diff'
+    #'T5YIE': 'level_and_diff',
+    #'DFF': 'level_and_diff',
+    #'DGS10': 'level_and_diff', # Added policy for DGS10
 }
 
 # Local CSV
@@ -66,9 +66,9 @@ MTF_INTERVALS = {
 }
 
 LOOKBACK_DAYS = {
-    'D1': 30,
-    'H1': 7,
-    'M1': 2,
+    'D1': 600,
+    'H1': 1007,
+    'M1': 2002,
     'M5': 7,
     'M15': 7,
 }
@@ -82,9 +82,9 @@ maxlag_granger = 5
 alpha_granger = 0.05
 
 VARX_ENDOG_GROUPS = {
-    'FX_Majors_D1': ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return'],
-    'Commodities_H1': ['XAUUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return'],
-    'Risk_D1': ['US500_Close_Log_Return', 'DXY_Close_Log_Return'],
+    'FX_Majors': ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return'],
+    'Commodities': ['XAUUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return'],
+    'Risk': ['US500_Close_Log_Return', 'DXY_Close_Log_Return'],
 }
 maxlag_varx = 5
 MIN_OBS_FOR_GARCH = 100

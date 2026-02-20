@@ -1,5 +1,5 @@
 ==== Pipeline Execution Log ====
-[INFO] Starting pipeline run with ID: pipeline_run_20260216_212913
+[INFO] Starting pipeline run with ID: pipeline_run_20260216_224153
 
 === Unduh FRED ===
 [INFO] Mengambil data dari 2016-02-19 hingga 2026-02-16
@@ -32,15 +32,6 @@ effective_until_next_release dtype: datetime64[ns, UTC], tz: UTC
 date dtype: datetime64[ns, UTC], tz: UTC
 ---------------------------------------------------------
 [OK] RRPONTSYD: 120 observasi (all_releases), freq=Monthly
---- Inspection after download and filter for GDP (GDP) ---
-DataFrame shape: (117, 5)
-DataFrame columns: ['realtime_start', 'date', 'GDP', 'release_date', 'effective_until_next_release']
-Index dtype: int64, tz: N/A
-release_date dtype: datetime64[ns, UTC], tz: UTC
-effective_until_next_release dtype: datetime64[ns, UTC], tz: UTC
-date dtype: datetime64[ns, UTC], tz: UTC
----------------------------------------------------------
-[OK] GDP: 117 observasi (all_releases), freq=Quarterly
 [WARN] Fallback EFFRVOL (EFFRVOL) ke simple mode: Bad Request.  There are 2497 vintage dates in the specified real-time period: 1776-07-04 to 9999-12-31.  This exceeds the maximum number of vintage dates allowed for this file type (2000).
 --- Inspection after download and filter for EFFRVOL (EFFRVOL) ---
 DataFrame shape: (2500, 4)
@@ -51,16 +42,6 @@ effective_until_next_release dtype: datetime64[ns, UTC], tz: UTC
 date dtype: datetime64[ns, UTC], tz: UTC
 ---------------------------------------------------------
 [OK] EFFRVOL: 2500 observasi (simple_series), freq=Daily
-[WARN] Fallback T5YIE (T5YIE) ke simple mode: Bad Request.  There are 2978 vintage dates in the specified real-time period: 1776-07-04 to 9999-12-31.  This exceeds the maximum number of vintage dates allowed for this file type (2000).
---- Inspection after download and filter for T5YIE (T5YIE) ---
-DataFrame shape: (2496, 4)
-DataFrame columns: ['T5YIE', 'release_date', 'effective_until_next_release', 'date']
-Index dtype: datetime64[ns], tz: None
-release_date dtype: datetime64[ns, UTC], tz: UTC
-effective_until_next_release dtype: datetime64[ns, UTC], tz: UTC
-date dtype: datetime64[ns, UTC], tz: UTC
----------------------------------------------------------
-[OK] T5YIE: 2496 observasi (simple_series), freq=Daily
 [WARN] Fallback DFF (DFF) ke simple mode: Bad Request.  There are 4977 vintage dates in the specified real-time period: 1776-07-04 to 9999-12-31.  This exceeds the maximum number of vintage dates allowed for this file type (2000).
 --- Inspection after download and filter for DFF (DFF) ---
 DataFrame shape: (3646, 4)
@@ -82,105 +63,132 @@ date dtype: datetime64[ns, UTC], tz: UTC
 ---------------------------------------------------------
 [OK] DGS10: 2495 observasi (simple_series), freq=Daily
 
-[INFO] Total gabungan FRED data: (87, 10)
+[INFO] Total gabungan FRED data: (87, 8)
 [INFO] Periode: 2016-03-01 -> 2024-04-15
-[INFO] Kolom efektif: release_date, effective_until_next_release (8 seri)
+[INFO] Kolom efektif: release_date, effective_until_next_release (6 seri)
 [OK] Kolom FRED berhasil di-rename.
 
 [INFO] FRED data final setelah koreksi index dan rename kolom:
 [OK] Unduh FRED berhasil.
-[DEBUG] Loading data for TF: D1, interval_str: 1d, lookback_days: 30
+[DEBUG] Loading data for TF: D1, interval_str: 1d, lookback_days: 600
 
 === Load Data D1 ===
 [WARN] File CSV lokal untuk interval 1d tidak ditemukan (contoh akhiran: _m1, _h1, _d1). Lanjut ke fallback Exness.
 [INFO] Fallback: Mengunduh data tick Exness untuk interval 1d
-[DOWNLOAD] Exness GBPUSD [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+[DOWNLOAD] Exness GBPUSD [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/GBPUSD/2026/02/07/Exness_GBPUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/GBPUSD/2026/02/07/Exness_GBPUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/GBPUSD/2026/02/14/Exness_GBPUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/GBPUSD/2026/02/14/Exness_GBPUSD_2026_02_14.zip
-  [INFO] Data for GBPUSD filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness AUDUSD [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for GBPUSD filtered to last 600 days. Original: 535 rows, Filtered: 514 rows.
+[DOWNLOAD] Exness AUDUSD [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/AUDUSD/2026/02/07/Exness_AUDUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/AUDUSD/2026/02/07/Exness_AUDUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/AUDUSD/2026/02/14/Exness_AUDUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/AUDUSD/2026/02/14/Exness_AUDUSD_2026_02_14.zip
-  [INFO] Data for AUDUSD filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness USDCAD [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for AUDUSD filtered to last 600 days. Original: 535 rows, Filtered: 514 rows.
+[DOWNLOAD] Exness USDCAD [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDCAD/2026/02/07/Exness_USDCAD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDCAD/2026/02/07/Exness_USDCAD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDCAD/2026/02/14/Exness_USDCAD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDCAD/2026/02/14/Exness_USDCAD_2026_02_14.zip
-  [INFO] Data for USDCAD filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness USDCHF [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for USDCAD filtered to last 600 days. Original: 535 rows, Filtered: 514 rows.
+[DOWNLOAD] Exness USDCHF [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDCHF/2026/02/07/Exness_USDCHF_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDCHF/2026/02/07/Exness_USDCHF_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDCHF/2026/02/14/Exness_USDCHF_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDCHF/2026/02/14/Exness_USDCHF_2026_02_14.zip
-  [INFO] Data for USDCHF filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness USDJPY [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for USDCHF filtered to last 600 days. Original: 535 rows, Filtered: 514 rows.
+[DOWNLOAD] Exness USDJPY [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDJPY/2026/02/07/Exness_USDJPY_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDJPY/2026/02/07/Exness_USDJPY_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDJPY/2026/02/14/Exness_USDJPY_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDJPY/2026/02/14/Exness_USDJPY_2026_02_14.zip
-  [INFO] Data for USDJPY filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness NZDUSD [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for USDJPY filtered to last 600 days. Original: 534 rows, Filtered: 513 rows.
+[DOWNLOAD] Exness NZDUSD [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/NZDUSD/2026/02/07/Exness_NZDUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/NZDUSD/2026/02/07/Exness_NZDUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/NZDUSD/2026/02/14/Exness_NZDUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/NZDUSD/2026/02/14/Exness_NZDUSD_2026_02_14.zip
-  [INFO] Data for NZDUSD filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness XAUUSD [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for NZDUSD filtered to last 600 days. Original: 535 rows, Filtered: 514 rows.
+[DOWNLOAD] Exness XAUUSD [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/XAUUSD/2026/02/07/Exness_XAUUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/XAUUSD/2026/02/07/Exness_XAUUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/XAUUSD/2026/02/14/Exness_XAUUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/XAUUSD/2026/02/14/Exness_XAUUSD_2026_02_14.zip
-  [INFO] Data for XAUUSD filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness XAGUSD [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for XAUUSD filtered to last 600 days. Original: 534 rows, Filtered: 513 rows.
+[DOWNLOAD] Exness XAGUSD [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/XAGUSD/2026/02/07/Exness_XAGUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/XAGUSD/2026/02/07/Exness_XAGUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/XAGUSD/2026/02/14/Exness_XAGUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/XAGUSD/2026/02/14/Exness_XAGUSD_2026_02_14.zip
-  [INFO] Data for XAGUSD filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness USOIL [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for XAGUSD filtered to last 600 days. Original: 534 rows, Filtered: 513 rows.
+[DOWNLOAD] Exness USOIL [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USOIL/2026/02/07/Exness_USOIL_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USOIL/2026/02/07/Exness_USOIL_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USOIL/2026/02/14/Exness_USOIL_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USOIL/2026/02/14/Exness_USOIL_2026_02_14.zip
-  [INFO] Data for USOIL filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness US500 [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for USOIL filtered to last 600 days. Original: 534 rows, Filtered: 513 rows.
+[DOWNLOAD] Exness US500 [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/US500/2026/02/07/Exness_US500_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/US500/2026/02/07/Exness_US500_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/US500/2026/02/14/Exness_US500_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/US500/2026/02/14/Exness_US500_2026_02_14.zip
-  [INFO] Data for US500 filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
-[DOWNLOAD] Exness DXY [1d] dari 2026-01-17 s/d 2026-02-16 (17 URL).
+  [INFO] Data for US500 filtered to last 600 days. Original: 533 rows, Filtered: 512 rows.
+[DOWNLOAD] Exness DXY [1d] dari 2024-06-26 s/d 2026-02-16 (36 URL).
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2026/02/07/Exness_DXY_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2026/02/07/Exness_DXY_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2026/02/14/Exness_DXY_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2026/02/14/Exness_DXY_2026_02_14.zip
-  [INFO] Data for DXY filtered to last 30 days. Original: 40 rows, Filtered: 26 rows.
+  [INFO] Data for DXY filtered to last 600 days. Original: 535 rows, Filtered: 514 rows.
 [OK] Exness fallback selesai. 11 pair siap untuk 1d.
 [OK] Load Data D1 berhasil.
-[DEBUG] Loading data for TF: H1, interval_str: 1h, lookback_days: 7
+[DEBUG] Loading data for TF: H1, interval_str: 1h, lookback_days: 1007
 
 === Load Data H1 ===
 [INFO] Mencoba memuat data MTF (1h) dari: /content/drive/MyDrive/books/CASSANDRA/data_base/combined_data_final_complete.csv_1h.csv
-  [INFO] Data for GBPUSD filtered to last 7 days. Original: 38005 rows, Filtered: 121 rows.
-  [INFO] Data for AUDUSD filtered to last 7 days. Original: 38005 rows, Filtered: 121 rows.
-  [INFO] Data for USDCAD filtered to last 7 days. Original: 38005 rows, Filtered: 121 rows.
-  [INFO] Data for USDCHF filtered to last 7 days. Original: 38005 rows, Filtered: 121 rows.
-  [INFO] Data for USDJPY filtered to last 7 days. Original: 38005 rows, Filtered: 121 rows.
-  [INFO] Data for NZDUSD filtered to last 7 days. Original: 38005 rows, Filtered: 121 rows.
-  [INFO] Data for XAUUSD filtered to last 7 days. Original: 38005 rows, Filtered: 121 rows.
-  [INFO] Data for XAGUSD filtered to last 7 days. Original: 38005 rows, Filtered: 121 rows.
-  [INFO] Data for DXY filtered to last 7 days. Original: 38005 rows, Filtered: 121 rows.
+  [INFO] Data for GBPUSD filtered to last 1007 days. Original: 38005 rows, Filtered: 17108 rows.
+  [INFO] Data for AUDUSD filtered to last 1007 days. Original: 38005 rows, Filtered: 17108 rows.
+  [INFO] Data for USDCAD filtered to last 1007 days. Original: 38005 rows, Filtered: 17108 rows.
+  [INFO] Data for USDCHF filtered to last 1007 days. Original: 38005 rows, Filtered: 17108 rows.
+  [INFO] Data for USDJPY filtered to last 1007 days. Original: 38005 rows, Filtered: 17108 rows.
+  [INFO] Data for NZDUSD filtered to last 1007 days. Original: 38005 rows, Filtered: 17108 rows.
+  [INFO] Data for XAUUSD filtered to last 1007 days. Original: 38005 rows, Filtered: 17108 rows.
+  [INFO] Data for XAGUSD filtered to last 1007 days. Original: 38005 rows, Filtered: 17108 rows.
+  [INFO] Data for DXY filtered to last 1007 days. Original: 38005 rows, Filtered: 17108 rows.
 [OK] Berhasil memuat 9 pairs dari CSV lokal 1h.
 [OK] Load Data H1 berhasil.
-[DEBUG] Loading data for TF: M1, interval_str: 1m, lookback_days: 2
+[DEBUG] Loading data for TF: M1, interval_str: 1m, lookback_days: 2002
 
 === Load Data M1 ===
 [WARN] File CSV lokal untuk interval 1m tidak ditemukan (contoh akhiran: _m1, _h1, _d1). Lanjut ke fallback Exness.
 [INFO] Fallback: Mengunduh data tick Exness untuk interval 1m
-[DOWNLOAD] Exness GBPUSD [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+[DOWNLOAD] Exness GBPUSD [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/GBPUSD/2026/02/07/Exness_GBPUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/GBPUSD/2026/02/07/Exness_GBPUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/GBPUSD/2026/02/14/Exness_GBPUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/GBPUSD/2026/02/14/Exness_GBPUSD_2026_02_14.zip
-[DOWNLOAD] Exness AUDUSD [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for GBPUSD filtered to last 2002 days. Original: 2041191 rows, Filtered: 2018181 rows.
+[DOWNLOAD] Exness AUDUSD [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/AUDUSD/2026/02/07/Exness_AUDUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/AUDUSD/2026/02/07/Exness_AUDUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/AUDUSD/2026/02/14/Exness_AUDUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/AUDUSD/2026/02/14/Exness_AUDUSD_2026_02_14.zip
-[DOWNLOAD] Exness USDCAD [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for AUDUSD filtered to last 2002 days. Original: 2043962 rows, Filtered: 2020932 rows.
+[DOWNLOAD] Exness USDCAD [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDCAD/2026/02/07/Exness_USDCAD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDCAD/2026/02/07/Exness_USDCAD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDCAD/2026/02/14/Exness_USDCAD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDCAD/2026/02/14/Exness_USDCAD_2026_02_14.zip
-[DOWNLOAD] Exness USDCHF [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for USDCAD filtered to last 2002 days. Original: 2033435 rows, Filtered: 2010478 rows.
+[DOWNLOAD] Exness USDCHF [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDCHF/2026/02/07/Exness_USDCHF_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDCHF/2026/02/07/Exness_USDCHF_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDCHF/2026/02/14/Exness_USDCHF_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDCHF/2026/02/14/Exness_USDCHF_2026_02_14.zip
-[DOWNLOAD] Exness USDJPY [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for USDCHF filtered to last 2002 days. Original: 2021455 rows, Filtered: 1998581 rows.
+[DOWNLOAD] Exness USDJPY [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDJPY/2026/02/07/Exness_USDJPY_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDJPY/2026/02/07/Exness_USDJPY_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USDJPY/2026/02/14/Exness_USDJPY_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USDJPY/2026/02/14/Exness_USDJPY_2026_02_14.zip
-[DOWNLOAD] Exness NZDUSD [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for USDJPY filtered to last 2002 days. Original: 2037763 rows, Filtered: 2014792 rows.
+[DOWNLOAD] Exness NZDUSD [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/NZDUSD/2026/02/07/Exness_NZDUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/NZDUSD/2026/02/07/Exness_NZDUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/NZDUSD/2026/02/14/Exness_NZDUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/NZDUSD/2026/02/14/Exness_NZDUSD_2026_02_14.zip
-[DOWNLOAD] Exness XAUUSD [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for NZDUSD filtered to last 2002 days. Original: 2037161 rows, Filtered: 2014155 rows.
+[DOWNLOAD] Exness XAUUSD [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/XAUUSD/2026/02/07/Exness_XAUUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/XAUUSD/2026/02/07/Exness_XAUUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/XAUUSD/2026/02/14/Exness_XAUUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/XAUUSD/2026/02/14/Exness_XAUUSD_2026_02_14.zip
-[DOWNLOAD] Exness XAGUSD [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for XAUUSD filtered to last 2002 days. Original: 1953686 rows, Filtered: 1931565 rows.
+[DOWNLOAD] Exness XAGUSD [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/XAGUSD/2026/02/07/Exness_XAGUSD_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/XAGUSD/2026/02/07/Exness_XAGUSD_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/XAGUSD/2026/02/14/Exness_XAGUSD_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/XAGUSD/2026/02/14/Exness_XAGUSD_2026_02_14.zip
-[DOWNLOAD] Exness USOIL [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for XAGUSD filtered to last 2002 days. Original: 1928184 rows, Filtered: 1906064 rows.
+[DOWNLOAD] Exness USOIL [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USOIL/2026/02/07/Exness_USOIL_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USOIL/2026/02/07/Exness_USOIL_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/USOIL/2026/02/14/Exness_USOIL_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/USOIL/2026/02/14/Exness_USOIL_2026_02_14.zip
-[DOWNLOAD] Exness US500 [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for USOIL filtered to last 2002 days. Original: 1912583 rows, Filtered: 1891259 rows.
+[DOWNLOAD] Exness US500 [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/US500/2026/02/07/Exness_US500_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/US500/2026/02/07/Exness_US500_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/US500/2026/02/14/Exness_US500_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/US500/2026/02/14/Exness_US500_2026_02_14.zip
-[DOWNLOAD] Exness DXY [1m] dari 2026-02-14 s/d 2026-02-16 (3 URL).
+  [INFO] Data for US500 filtered to last 2002 days. Original: 1854652 rows, Filtered: 1834439 rows.
+[DOWNLOAD] Exness DXY [1m] dari 2020-08-24 s/d 2026-02-16 (82 URL).
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2020/08/Exness_DXY_2020_08.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2020/08/Exness_DXY_2020_08.zip
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2020/09/Exness_DXY_2020_09.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2020/09/Exness_DXY_2020_09.zip
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2020/10/Exness_DXY_2020_10.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2020/10/Exness_DXY_2020_10.zip
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2020/11/Exness_DXY_2020_11.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2020/11/Exness_DXY_2020_11.zip
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2020/12/Exness_DXY_2020_12.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2020/12/Exness_DXY_2020_12.zip
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2021/01/Exness_DXY_2021_01.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2021/01/Exness_DXY_2021_01.zip
+[WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2026/02/07/Exness_DXY_2026_02_07.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2026/02/07/Exness_DXY_2026_02_07.zip
 [WARN] Gagal unduh tick Exness https://ticks.ex2archive.com/ticks/DXY/2026/02/14/Exness_DXY_2026_02_14.zip: 404 Client Error: Not Found for url: https://ticks.ex2archive.com/ticks/DXY/2026/02/14/Exness_DXY_2026_02_14.zip
 [OK] Exness fallback selesai. 11 pair siap untuk 1m.
 [OK] Load Data M1 berhasil.
@@ -188,6 +196,17 @@ date dtype: datetime64[ns, UTC], tz: UTC
 === Cek Data Freshness ===
 
 === Checking Multi-Timeframe Data Freshness ===
+[ALERT] Data D1 GBPUSD stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 AUDUSD stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 USDCAD stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 USDCHF stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 USDJPY stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 NZDUSD stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 XAUUSD stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 XAGUSD stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 USOIL stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 US500 stale! Last: 2026-02-16 00:00:00+00:00
+[ALERT] Data D1 DXY stale! Last: 2026-02-16 00:00:00+00:00
 [ALERT] Data H1 GBPUSD stale! Last: 2026-02-10 10:00:00+00:00
 [ALERT] Data H1 AUDUSD stale! Last: 2026-02-10 10:00:00+00:00
 [ALERT] Data H1 USDCAD stale! Last: 2026-02-10 10:00:00+00:00
@@ -197,17 +216,17 @@ date dtype: datetime64[ns, UTC], tz: UTC
 [ALERT] Data H1 XAUUSD stale! Last: 2026-02-10 10:00:00+00:00
 [ALERT] Data H1 XAGUSD stale! Last: 2026-02-10 10:00:00+00:00
 [ALERT] Data H1 DXY stale! Last: 2026-02-10 10:00:00+00:00
-[ALERT] Data M1 GBPUSD stale! Last: 2026-02-16 21:15:00+00:00
-[ALERT] Data M1 AUDUSD stale! Last: 2026-02-16 21:14:00+00:00
-[ALERT] Data M1 USDCAD stale! Last: 2026-02-16 21:14:00+00:00
-[ALERT] Data M1 USDCHF stale! Last: 2026-02-16 21:14:00+00:00
-[ALERT] Data M1 USDJPY stale! Last: 2026-02-16 21:15:00+00:00
-[ALERT] Data M1 NZDUSD stale! Last: 2026-02-16 21:14:00+00:00
-[ALERT] Data M1 XAUUSD stale! Last: 2026-02-16 19:29:00+00:00
-[ALERT] Data M1 XAGUSD stale! Last: 2026-02-16 19:29:00+00:00
-[ALERT] Data M1 USOIL stale! Last: 2026-02-16 19:14:00+00:00
-[ALERT] Data M1 US500 stale! Last: 2026-02-16 17:59:00+00:00
-[ALERT] Data M1 DXY stale! Last: 2026-02-16 21:14:00+00:00
+[ALERT] Data M1 GBPUSD stale! Last: 2026-02-16 23:00:00+00:00
+[ALERT] Data M1 AUDUSD stale! Last: 2026-02-16 23:00:00+00:00
+[ALERT] Data M1 USDCAD stale! Last: 2026-02-16 23:00:00+00:00
+[ALERT] Data M1 USDCHF stale! Last: 2026-02-16 23:00:00+00:00
+[ALERT] Data M1 USDJPY stale! Last: 2026-02-16 23:15:00+00:00
+[ALERT] Data M1 NZDUSD stale! Last: 2026-02-16 23:15:00+00:00
+[ALERT] Data M1 XAUUSD stale! Last: 2026-02-16 23:30:00+00:00
+[ALERT] Data M1 XAGUSD stale! Last: 2026-02-16 23:30:00+00:00
+[ALERT] Data M1 USOIL stale! Last: 2026-02-16 23:30:00+00:00
+[ALERT] Data M1 US500 stale! Last: 2026-02-16 23:30:00+00:00
+[ALERT] Data M1 DXY stale! Last: 2026-02-16 23:30:00+00:00
 [OK] Cek Data Freshness berhasil.
 
 === Align MTF to Common Close ===
@@ -245,7 +264,7 @@ date dtype: datetime64[ns, UTC], tz: UTC
 
 === Combine DF D1 ===
   [INFO] Menggabungkan log return harga ke dalam format 'df'...
-  [OK] Penggabungan selesai (DataFrame). Shape: (25, 44)
+  [OK] Penggabungan selesai (DataFrame). Shape: (513, 44)
 [OK] Combine DF D1 berhasil.
 [DEBUG] Combined log returns (DF) for D1. Columns: ['GBPUSD_GBPUSD_Open_Log_Return', 'GBPUSD_GBPUSD_High_Log_Return', 'GBPUSD_GBPUSD_Low_Log_Return', 'GBPUSD_GBPUSD_Close_Log_Return', 'AUDUSD_AUDUSD_Open_Log_Return', 'AUDUSD_AUDUSD_High_Log_Return', 'AUDUSD_AUDUSD_Low_Log_Return', 'AUDUSD_AUDUSD_Close_Log_Return', 'USDCAD_USDCAD_Open_Log_Return', 'USDCAD_USDCAD_High_Log_Return', 'USDCAD_USDCAD_Low_Log_Return', 'USDCAD_USDCAD_Close_Log_Return', 'USDCHF_USDCHF_Open_Log_Return', 'USDCHF_USDCHF_High_Log_Return', 'USDCHF_USDCHF_Low_Log_Return', 'USDCHF_USDCHF_Close_Log_Return', 'USDJPY_USDJPY_Open_Log_Return', 'USDJPY_USDJPY_High_Log_Return', 'USDJPY_USDJPY_Low_Log_Return', 'USDJPY_USDJPY_Close_Log_Return', 'NZDUSD_NZDUSD_Open_Log_Return', 'NZDUSD_NZDUSD_High_Log_Return', 'NZDUSD_NZDUSD_Low_Log_Return', 'NZDUSD_NZDUSD_Close_Log_Return', 'XAUUSD_XAUUSD_Open_Log_Return', 'XAUUSD_XAUUSD_High_Log_Return', 'XAUUSD_XAUUSD_Low_Log_Return', 'XAUUSD_XAUUSD_Close_Log_Return', 'XAGUSD_XAGUSD_Open_Log_Return', 'XAGUSD_XAGUSD_High_Log_Return', 'XAGUSD_XAGUSD_Low_Log_Return', 'XAGUSD_XAGUSD_Close_Log_Return', 'USOIL_USOIL_Open_Log_Return', 'USOIL_USOIL_High_Log_Return', 'USOIL_USOIL_Low_Log_Return', 'USOIL_USOIL_Close_Log_Return', 'US500_US500_Open_Log_Return', 'US500_US500_High_Log_Return', 'US500_US500_Low_Log_Return', 'US500_US500_Close_Log_Return', 'DXY_DXY_Open_Log_Return', 'DXY_DXY_High_Log_Return', 'DXY_DXY_Low_Log_Return', 'DXY_DXY_Close_Log_Return']
 
@@ -259,12 +278,8 @@ date dtype: datetime64[ns, UTC], tz: UTC
   [OK] BAMLH0A0HYM2SYTW: Transformasi berhasil (86 observasi)
   [INFO] Menerapkan Log Diff Transform pada RRPONTSYD
   [OK] RRPONTSYD: Transformasi berhasil (85 observasi)
-  [INFO] Menerapkan Level and Diff Transform pada GDP
-  [OK] GDP: Transformasi berhasil (87 observasi)
   [INFO] Menerapkan Log Diff Transform pada EFFRVOL
   [OK] EFFRVOL: Transformasi berhasil (86 observasi)
-  [INFO] Menerapkan Level and Diff Transform pada T5YIE
-  [OK] T5YIE: Transformasi berhasil (87 observasi)
   [INFO] Menerapkan Level and Diff Transform pada DFF
   [OK] DFF: Transformasi berhasil (87 observasi)
   [INFO] Menerapkan Level and Diff Transform pada DGS10
@@ -279,9 +294,7 @@ date dtype: datetime64[ns, UTC], tz: UTC
   [INFO] Seri 'BAMLEMRECRPIEMEASYTW': Missing data (0.00%) diisi dengan forward fill.
   [INFO] Seri 'BAMLH0A0HYM2SYTW': Missing data (0.00%) diisi dengan forward fill.
   [INFO] Seri 'RRPONTSYD': Missing data (0.00%) diisi dengan forward fill.
-  [INFO] Seri 'GDP': Missing data (100.00%) diisi dengan forward fill.
   [INFO] Seri 'EFFRVOL': Missing data (0.00%) diisi dengan forward fill.
-  [INFO] Seri 'T5YIE': Missing data (100.00%) diisi dengan forward fill.
   [INFO] Seri 'DFF': Missing data (100.00%) diisi dengan forward fill.
   [INFO] Seri 'DGS10': Missing data (100.00%) diisi dengan forward fill.
 
@@ -289,9 +302,7 @@ date dtype: datetime64[ns, UTC], tz: UTC
   [INFO] BAMLEMRECRPIEMEASYTW: 57 observasi, 0.00% missing data.
   [INFO] BAMLH0A0HYM2SYTW: 86 observasi, 0.00% missing data.
   [INFO] RRPONTSYD: 85 observasi, 0.00% missing data.
-  [INFO] GDP: 87 observasi, 100.00% missing data.
   [INFO] EFFRVOL: 86 observasi, 0.00% missing data.
-  [INFO] T5YIE: 87 observasi, 100.00% missing data.
   [INFO] DFF: 87 observasi, 100.00% missing data.
   [INFO] DGS10: 87 observasi, 100.00% missing data.
 
@@ -386,21 +397,7 @@ release_date
 2024-04-10 00:00:00+00:00              -1.245216    2024-04-10 00:00:00+00:00
 2024-04-15 00:00:00+00:00               0.000000    2024-04-10 00:00:00+00:00
 
-[85 rows x 2 columns], 'GDP':                            GDP_level_Transformed  ...  effective_until_next_release
-release_date                                      ...                              
-2016-03-01 00:00:00+00:00                    NaN  ...     2016-04-01 00:00:00+00:00
-2016-04-01 00:00:00+00:00                    NaN  ...     2016-05-02 00:00:00+00:00
-2016-05-02 00:00:00+00:00                    NaN  ...     2016-06-01 00:00:00+00:00
-2016-06-01 00:00:00+00:00                    NaN  ...     2016-07-01 00:00:00+00:00
-2016-07-01 00:00:00+00:00                    NaN  ...     2016-08-01 00:00:00+00:00
-...                                          ...  ...                           ...
-2023-11-10 00:00:00+00:00                    NaN  ...     2023-12-09 00:00:00+00:00
-2023-12-09 00:00:00+00:00                    NaN  ...     2024-01-11 00:00:00+00:00
-2024-01-11 00:00:00+00:00                    NaN  ...     2024-01-11 00:00:00+00:00
-2024-04-10 00:00:00+00:00                    NaN  ...     2024-04-10 00:00:00+00:00
-2024-04-15 00:00:00+00:00                    NaN  ...     2024-04-10 00:00:00+00:00
-
-[87 rows x 3 columns], 'EFFRVOL':                            EFFRVOL_Transformed effective_until_next_release
+[85 rows x 2 columns], 'EFFRVOL':                            EFFRVOL_Transformed effective_until_next_release
 release_date                                                               
 2016-04-01 00:00:00+00:00            -0.054067    2016-05-02 00:00:00+00:00
 2016-05-02 00:00:00+00:00            -0.199129    2016-06-01 00:00:00+00:00
@@ -414,21 +411,7 @@ release_date
 2024-04-10 00:00:00+00:00            -0.110001    2024-04-10 00:00:00+00:00
 2024-04-15 00:00:00+00:00            -0.035507    2024-04-10 00:00:00+00:00
 
-[86 rows x 2 columns], 'T5YIE':                            T5YIE_level_Transformed  ...  effective_until_next_release
-release_date                                        ...                              
-2016-03-01 00:00:00+00:00                      NaN  ...     2016-04-01 00:00:00+00:00
-2016-04-01 00:00:00+00:00                      NaN  ...     2016-05-02 00:00:00+00:00
-2016-05-02 00:00:00+00:00                      NaN  ...     2016-06-01 00:00:00+00:00
-2016-06-01 00:00:00+00:00                      NaN  ...     2016-07-01 00:00:00+00:00
-2016-07-01 00:00:00+00:00                      NaN  ...     2016-08-01 00:00:00+00:00
-...                                            ...  ...                           ...
-2023-11-10 00:00:00+00:00                      NaN  ...     2023-12-09 00:00:00+00:00
-2023-12-09 00:00:00+00:00                      NaN  ...     2024-01-11 00:00:00+00:00
-2024-01-11 00:00:00+00:00                      NaN  ...     2024-01-11 00:00:00+00:00
-2024-04-10 00:00:00+00:00                      NaN  ...     2024-04-10 00:00:00+00:00
-2024-04-15 00:00:00+00:00                      NaN  ...     2024-04-10 00:00:00+00:00
-
-[87 rows x 3 columns], 'DFF':                            DFF_level_Transformed  ...  effective_until_next_release
+[86 rows x 2 columns], 'DFF':                            DFF_level_Transformed  ...  effective_until_next_release
 release_date                                      ...                              
 2016-03-01 00:00:00+00:00                    NaN  ...     2016-04-01 00:00:00+00:00
 2016-04-01 00:00:00+00:00                    NaN  ...     2016-05-02 00:00:00+00:00
@@ -486,7 +469,7 @@ release_date                                        ...
 
 === Combine DF H1 ===
   [INFO] Menggabungkan log return harga ke dalam format 'df'...
-  [OK] Penggabungan selesai (DataFrame). Shape: (120, 36)
+  [OK] Penggabungan selesai (DataFrame). Shape: (17107, 36)
 [OK] Combine DF H1 berhasil.
 [DEBUG] Combined log returns (DF) for H1. Columns: ['GBPUSD_GBPUSD_Open_Log_Return', 'GBPUSD_GBPUSD_High_Log_Return', 'GBPUSD_GBPUSD_Low_Log_Return', 'GBPUSD_GBPUSD_Close_Log_Return', 'AUDUSD_AUDUSD_Open_Log_Return', 'AUDUSD_AUDUSD_High_Log_Return', 'AUDUSD_AUDUSD_Low_Log_Return', 'AUDUSD_AUDUSD_Close_Log_Return', 'USDCAD_USDCAD_Open_Log_Return', 'USDCAD_USDCAD_High_Log_Return', 'USDCAD_USDCAD_Low_Log_Return', 'USDCAD_USDCAD_Close_Log_Return', 'USDCHF_USDCHF_Open_Log_Return', 'USDCHF_USDCHF_High_Log_Return', 'USDCHF_USDCHF_Low_Log_Return', 'USDCHF_USDCHF_Close_Log_Return', 'USDJPY_USDJPY_Open_Log_Return', 'USDJPY_USDJPY_High_Log_Return', 'USDJPY_USDJPY_Low_Log_Return', 'USDJPY_USDJPY_Close_Log_Return', 'NZDUSD_NZDUSD_Open_Log_Return', 'NZDUSD_NZDUSD_High_Log_Return', 'NZDUSD_NZDUSD_Low_Log_Return', 'NZDUSD_NZDUSD_Close_Log_Return', 'XAUUSD_XAUUSD_Open_Log_Return', 'XAUUSD_XAUUSD_High_Log_Return', 'XAUUSD_XAUUSD_Low_Log_Return', 'XAUUSD_XAUUSD_Close_Log_Return', 'XAGUSD_XAGUSD_Open_Log_Return', 'XAGUSD_XAGUSD_High_Log_Return', 'XAGUSD_XAGUSD_Low_Log_Return', 'XAGUSD_XAGUSD_Close_Log_Return', 'DXY_DXY_Open_Log_Return', 'DXY_DXY_High_Log_Return', 'DXY_DXY_Low_Log_Return', 'DXY_DXY_Close_Log_Return']
 [OK] Preprocess H1 berhasil.
@@ -526,7 +509,7 @@ release_date                                        ...
 
 === Combine DF M1 ===
   [INFO] Menggabungkan log return harga ke dalam format 'df'...
-  [OK] Penggabungan selesai (DataFrame). Shape: (115, 44)
+  [OK] Penggabungan selesai (DataFrame). Shape: (2040598, 44)
 [OK] Combine DF M1 berhasil.
 [DEBUG] Combined log returns (DF) for M1. Columns: ['GBPUSD_GBPUSD_Open_Log_Return', 'GBPUSD_GBPUSD_High_Log_Return', 'GBPUSD_GBPUSD_Low_Log_Return', 'GBPUSD_GBPUSD_Close_Log_Return', 'AUDUSD_AUDUSD_Open_Log_Return', 'AUDUSD_AUDUSD_High_Log_Return', 'AUDUSD_AUDUSD_Low_Log_Return', 'AUDUSD_AUDUSD_Close_Log_Return', 'USDCAD_USDCAD_Open_Log_Return', 'USDCAD_USDCAD_High_Log_Return', 'USDCAD_USDCAD_Low_Log_Return', 'USDCAD_USDCAD_Close_Log_Return', 'USDCHF_USDCHF_Open_Log_Return', 'USDCHF_USDCHF_High_Log_Return', 'USDCHF_USDCHF_Low_Log_Return', 'USDCHF_USDCHF_Close_Log_Return', 'USDJPY_USDJPY_Open_Log_Return', 'USDJPY_USDJPY_High_Log_Return', 'USDJPY_USDJPY_Low_Log_Return', 'USDJPY_USDJPY_Close_Log_Return', 'NZDUSD_NZDUSD_Open_Log_Return', 'NZDUSD_NZDUSD_High_Log_Return', 'NZDUSD_NZDUSD_Low_Log_Return', 'NZDUSD_NZDUSD_Close_Log_Return', 'XAUUSD_XAUUSD_Open_Log_Return', 'XAUUSD_XAUUSD_High_Log_Return', 'XAUUSD_XAUUSD_Low_Log_Return', 'XAUUSD_XAUUSD_Close_Log_Return', 'XAGUSD_XAGUSD_Open_Log_Return', 'XAGUSD_XAGUSD_High_Log_Return', 'XAGUSD_XAGUSD_Low_Log_Return', 'XAGUSD_XAGUSD_Close_Log_Return', 'USOIL_USOIL_Open_Log_Return', 'USOIL_USOIL_High_Log_Return', 'USOIL_USOIL_Low_Log_Return', 'USOIL_USOIL_Close_Log_Return', 'US500_US500_Open_Log_Return', 'US500_US500_High_Log_Return', 'US500_US500_Low_Log_Return', 'US500_US500_Close_Log_Return', 'DXY_DXY_Open_Log_Return', 'DXY_DXY_High_Log_Return', 'DXY_DXY_Low_Log_Return', 'DXY_DXY_Close_Log_Return']
 [OK] Preprocess M1 berhasil.
@@ -570,57 +553,71 @@ release_date                                        ...
 
 [INFO] Ringkasan Hasil Uji Granger:
            Relation                    Cause                   Effect  Best_Lag  PValue  Observations
-0   Within-DataDict   USOIL_Close_Log_Return  GBPUSD_Close_Log_Return         1  0.0064            25
-1   Within-DataDict   USOIL_Close_Log_Return  AUDUSD_Close_Log_Return         1  0.0251            25
-2   Within-DataDict  XAGUSD_Close_Log_Return  NZDUSD_Close_Log_Return         1  0.0373            25
-3   Within-DataDict   USOIL_Close_Log_Return  NZDUSD_Close_Log_Return         1  0.0380            25
-4   Within-DataDict  XAGUSD_Close_Log_Return  XAUUSD_Close_Log_Return         2  0.0297            25
-5   Within-DataDict  GBPUSD_Close_Log_Return  XAGUSD_Close_Log_Return         1  0.0352            25
-6   Within-DataDict  AUDUSD_Close_Log_Return  XAGUSD_Close_Log_Return         1  0.0416            25
-7   Within-DataDict  NZDUSD_Close_Log_Return  XAGUSD_Close_Log_Return         1  0.0172            25
-8   Within-DataDict  XAUUSD_Close_Log_Return  XAGUSD_Close_Log_Return         2  0.0065            25
-9   Within-DataDict     DXY_Close_Log_Return  XAGUSD_Close_Log_Return         4  0.0187            25
-10  Within-DataDict  GBPUSD_Close_Log_Return   USOIL_Close_Log_Return         2  0.0205            25
-11  Within-DataDict  AUDUSD_Close_Log_Return   USOIL_Close_Log_Return         2  0.0425            25
-12  Within-DataDict  USDCAD_Close_Log_Return   USOIL_Close_Log_Return         2  0.0027            25
-13  Within-DataDict  NZDUSD_Close_Log_Return   USOIL_Close_Log_Return         2  0.0216            25
-14  Within-DataDict  XAUUSD_Close_Log_Return   USOIL_Close_Log_Return         2  0.0020            25
-15  Within-DataDict  XAGUSD_Close_Log_Return   USOIL_Close_Log_Return         2  0.0094            25
-16  Within-DataDict  NZDUSD_Close_Log_Return   US500_Close_Log_Return         5  0.0301            25
+0   Within-DataDict  AUDUSD_Close_Log_Return  GBPUSD_Close_Log_Return         5  0.0055           513
+1   Within-DataDict  USDJPY_Close_Log_Return  GBPUSD_Close_Log_Return         1  0.0434           512
+2   Within-DataDict   US500_Close_Log_Return  GBPUSD_Close_Log_Return         2  0.0004           511
+3   Within-DataDict  USDJPY_Close_Log_Return  AUDUSD_Close_Log_Return         2  0.0473           512
+4   Within-DataDict  XAUUSD_Close_Log_Return  AUDUSD_Close_Log_Return         2  0.0218           512
+5   Within-DataDict   US500_Close_Log_Return  AUDUSD_Close_Log_Return         2  0.0014           511
+6   Within-DataDict  AUDUSD_Close_Log_Return  USDCAD_Close_Log_Return         2  0.0150           513
+7   Within-DataDict   US500_Close_Log_Return  USDCAD_Close_Log_Return         5  0.0261           511
+8   Within-DataDict  AUDUSD_Close_Log_Return  USDCHF_Close_Log_Return         5  0.0000           513
+9   Within-DataDict  USDCAD_Close_Log_Return  USDCHF_Close_Log_Return         5  0.0251           513
+10  Within-DataDict  NZDUSD_Close_Log_Return  USDCHF_Close_Log_Return         5  0.0000           513
+11  Within-DataDict   US500_Close_Log_Return  USDCHF_Close_Log_Return         5  0.0000           511
+12  Within-DataDict  AUDUSD_Close_Log_Return  USDJPY_Close_Log_Return         5  0.0025           512
+13  Within-DataDict  NZDUSD_Close_Log_Return  USDJPY_Close_Log_Return         1  0.0064           512
+14  Within-DataDict   US500_Close_Log_Return  USDJPY_Close_Log_Return         2  0.0016           510
+15  Within-DataDict  XAUUSD_Close_Log_Return  NZDUSD_Close_Log_Return         3  0.0379           512
+16  Within-DataDict   US500_Close_Log_Return  NZDUSD_Close_Log_Return         2  0.0020           511
+17  Within-DataDict  XAGUSD_Close_Log_Return  XAUUSD_Close_Log_Return         2  0.0269           512
+18  Within-DataDict   USOIL_Close_Log_Return  XAUUSD_Close_Log_Return         5  0.0048           512
+19  Within-DataDict   US500_Close_Log_Return  XAUUSD_Close_Log_Return         5  0.0148           511
+20  Within-DataDict  XAUUSD_Close_Log_Return  XAGUSD_Close_Log_Return         2  0.0000           512
+21  Within-DataDict   US500_Close_Log_Return  XAGUSD_Close_Log_Return         2  0.0327           511
+22  Within-DataDict   US500_Close_Log_Return   USOIL_Close_Log_Return         2  0.0205           511
+23  Within-DataDict  GBPUSD_Close_Log_Return   US500_Close_Log_Return         2  0.0002           511
+24  Within-DataDict  AUDUSD_Close_Log_Return   US500_Close_Log_Return         5  0.0007           511
+25  Within-DataDict  USDJPY_Close_Log_Return   US500_Close_Log_Return         2  0.0123           510
+26  Within-DataDict     DXY_Close_Log_Return   US500_Close_Log_Return         2  0.0088           511
+27  Within-DataDict  AUDUSD_Close_Log_Return     DXY_Close_Log_Return         5  0.0004           513
+28  Within-DataDict  USDJPY_Close_Log_Return     DXY_Close_Log_Return         1  0.0172           512
+29  Within-DataDict  NZDUSD_Close_Log_Return     DXY_Close_Log_Return         5  0.0047           513
+30  Within-DataDict   US500_Close_Log_Return     DXY_Close_Log_Return         2  0.0025           511
 [OK] Granger D1 berhasil.
 
 === Map Significant Exog D1 ===
 [OK] Map Significant Exog D1 berhasil.
-  [INFO] Exog map for D1: {'GBPUSD_Close_Log_Return': ['USOIL_Close_Log_Return'], 'AUDUSD_Close_Log_Return': ['USOIL_Close_Log_Return'], 'NZDUSD_Close_Log_Return': ['XAGUSD_Close_Log_Return', 'USOIL_Close_Log_Return'], 'XAUUSD_Close_Log_Return': ['XAGUSD_Close_Log_Return'], 'XAGUSD_Close_Log_Return': ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'NZDUSD_Close_Log_Return', 'XAUUSD_Close_Log_Return', 'DXY_Close_Log_Return'], 'USOIL_Close_Log_Return': ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDCAD_Close_Log_Return', 'NZDUSD_Close_Log_Return', 'XAUUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return'], 'US500_Close_Log_Return': ['NZDUSD_Close_Log_Return']}
+  [INFO] Exog map for D1: {'GBPUSD_Close_Log_Return': ['AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return', 'US500_Close_Log_Return'], 'AUDUSD_Close_Log_Return': ['USDJPY_Close_Log_Return', 'XAUUSD_Close_Log_Return', 'US500_Close_Log_Return'], 'USDCAD_Close_Log_Return': ['AUDUSD_Close_Log_Return', 'US500_Close_Log_Return'], 'USDCHF_Close_Log_Return': ['AUDUSD_Close_Log_Return', 'USDCAD_Close_Log_Return', 'NZDUSD_Close_Log_Return', 'US500_Close_Log_Return'], 'USDJPY_Close_Log_Return': ['AUDUSD_Close_Log_Return', 'NZDUSD_Close_Log_Return', 'US500_Close_Log_Return'], 'NZDUSD_Close_Log_Return': ['XAUUSD_Close_Log_Return', 'US500_Close_Log_Return'], 'XAUUSD_Close_Log_Return': ['XAGUSD_Close_Log_Return', 'USOIL_Close_Log_Return', 'US500_Close_Log_Return'], 'XAGUSD_Close_Log_Return': ['XAUUSD_Close_Log_Return', 'US500_Close_Log_Return'], 'USOIL_Close_Log_Return': ['US500_Close_Log_Return'], 'US500_Close_Log_Return': ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return', 'DXY_Close_Log_Return'], 'DXY_Close_Log_Return': ['AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return', 'NZDUSD_Close_Log_Return', 'US500_Close_Log_Return']}
 [OK] Granger D1 berhasil.
 
-[INFO] Melatih model untuk grup: FX_Majors_D1
-[INFO] Menggunakan eksogen signifikan untuk grup FX_Majors_D1: ['USOIL_Close_Log_Return']
-[INFO] Fitting model VARX/ARX untuk grup FX_Majors_D1, Endog: ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return']
+[INFO] Melatih model untuk grup: FX_Majors
+[INFO] Menggunakan eksogen signifikan untuk grup FX_Majors: ['US500_Close_Log_Return', 'XAUUSD_Close_Log_Return', 'NZDUSD_Close_Log_Return']
+[INFO] Fitting model VARX/ARX untuk grup FX_Majors, Endog: ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return']
 [DEBUG] fit_varx_or_arx received maxlags: 5
-[OK] Model VARMAX fitted for group FX_Majors_D1. Lags=2, Num Exog=1, R²={'GBPUSD_Close_Log_Return': np.float64(0.39259590868711636), 'AUDUSD_Close_Log_Return': np.float64(0.4885883512192727), 'USDJPY_Close_Log_Return': np.float64(0.40634951729721536)}
+[OK] Model VARMAX fitted for group FX_Majors. Lags=1, Num Exog=3, R²={'GBPUSD_Close_Log_Return': np.float64(0.013975501255875766), 'AUDUSD_Close_Log_Return': np.float64(0.01485884017958683), 'USDJPY_Close_Log_Return': np.float64(0.027047398176696213)}
 
-[INFO] Melatih model untuk grup: Commodities_H1
-[INFO] Menggunakan eksogen signifikan untuk grup Commodities_H1: ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'NZDUSD_Close_Log_Return', 'DXY_Close_Log_Return']
-[INFO] Fitting model VARX/ARX untuk grup Commodities_H1, Endog: ['XAUUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return']
+[INFO] Melatih model untuk grup: Commodities
+[INFO] Menggunakan eksogen signifikan untuk grup Commodities: ['USOIL_Close_Log_Return', 'US500_Close_Log_Return']
+[INFO] Fitting model VARX/ARX untuk grup Commodities, Endog: ['XAUUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return']
 [DEBUG] fit_varx_or_arx received maxlags: 5
-[OK] Model VARMAX fitted for group Commodities_H1. Lags=2, Num Exog=4, R²={'XAUUSD_Close_Log_Return': np.float64(0.5420503011648009), 'XAGUSD_Close_Log_Return': np.float64(0.5890310370300558)}
+[OK] Model VARMAX fitted for group Commodities. Lags=5, Num Exog=2, R²={'XAUUSD_Close_Log_Return': np.float64(0.05740550300077396), 'XAGUSD_Close_Log_Return': np.float64(0.08228565175137659)}
 
-[INFO] Melatih model untuk grup: Risk_D1
-[INFO] Menggunakan eksogen signifikan untuk grup Risk_D1: ['NZDUSD_Close_Log_Return']
-[INFO] Fitting model VARX/ARX untuk grup Risk_D1, Endog: ['US500_Close_Log_Return', 'DXY_Close_Log_Return']
+[INFO] Melatih model untuk grup: Risk
+[INFO] Menggunakan eksogen signifikan untuk grup Risk: ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return', 'NZDUSD_Close_Log_Return']
+[INFO] Fitting model VARX/ARX untuk grup Risk, Endog: ['US500_Close_Log_Return', 'DXY_Close_Log_Return']
 [DEBUG] fit_varx_or_arx received maxlags: 5
-[OK] Model VARMAX fitted for group Risk_D1. Lags=1, Num Exog=1, R²={'US500_Close_Log_Return': np.float64(0.0662848915127573), 'DXY_Close_Log_Return': np.float64(0.08873540681727199)}
+[OK] Model VARMAX fitted for group Risk. Lags=5, Num Exog=4, R²={'US500_Close_Log_Return': np.float64(0.11955959844785269), 'DXY_Close_Log_Return': np.float64(0.049645677097142626)}
 
 [INFO] Ringkasan Hasil Fitting Model VARX/ARX (Grup):
-            Group           Endog_Variable Model_Type  Lags_Used  Num_Exog        R2
-4  Commodities_H1  XAGUSD_Close_Log_Return     VARMAX          2         4  0.589031
-3  Commodities_H1  XAUUSD_Close_Log_Return     VARMAX          2         4  0.542050
-1    FX_Majors_D1  AUDUSD_Close_Log_Return     VARMAX          2         1  0.488588
-2    FX_Majors_D1  USDJPY_Close_Log_Return     VARMAX          2         1  0.406350
-0    FX_Majors_D1  GBPUSD_Close_Log_Return     VARMAX          2         1  0.392596
-6         Risk_D1     DXY_Close_Log_Return     VARMAX          1         1  0.088735
-5         Risk_D1   US500_Close_Log_Return     VARMAX          1         1  0.066285
+         Group           Endog_Variable Model_Type  Lags_Used  Num_Exog        R2
+5         Risk   US500_Close_Log_Return     VARMAX          5         4  0.119560
+4  Commodities  XAGUSD_Close_Log_Return     VARMAX          5         2  0.082286
+3  Commodities  XAUUSD_Close_Log_Return     VARMAX          5         2  0.057406
+6         Risk     DXY_Close_Log_Return     VARMAX          5         4  0.049646
+2    FX_Majors  USDJPY_Close_Log_Return     VARMAX          1         3  0.027047
+1    FX_Majors  AUDUSD_Close_Log_Return     VARMAX          1         3  0.014859
+0    FX_Majors  GBPUSD_Close_Log_Return     VARMAX          1         3  0.013976
 
 [OK] Proses fitting model selesai. Fitted models stored in 'models' dictionary.
 
@@ -654,52 +651,64 @@ release_date                                        ...
 
 [INFO] Ringkasan Hasil Uji Granger:
            Relation                    Cause                   Effect  Best_Lag  PValue  Observations
-0   Within-DataDict  USDCAD_Close_Log_Return  GBPUSD_Close_Log_Return         3  0.0385           119
-1   Within-DataDict  XAUUSD_Close_Log_Return  GBPUSD_Close_Log_Return         1  0.0271           109
-2   Within-DataDict  NZDUSD_Close_Log_Return  AUDUSD_Close_Log_Return         1  0.0086           119
-3   Within-DataDict  XAUUSD_Close_Log_Return  AUDUSD_Close_Log_Return         1  0.0433           109
-4   Within-DataDict     DXY_Close_Log_Return  AUDUSD_Close_Log_Return         3  0.0446           119
-5   Within-DataDict  GBPUSD_Close_Log_Return  USDCAD_Close_Log_Return         4  0.0098           119
-6   Within-DataDict  USDCHF_Close_Log_Return  USDCAD_Close_Log_Return         1  0.0060           119
-7   Within-DataDict  USDJPY_Close_Log_Return  USDCAD_Close_Log_Return         2  0.0121           119
-8   Within-DataDict  NZDUSD_Close_Log_Return  USDCAD_Close_Log_Return         5  0.0096           119
-9   Within-DataDict     DXY_Close_Log_Return  USDCAD_Close_Log_Return         1  0.0013           119
-10  Within-DataDict  AUDUSD_Close_Log_Return  NZDUSD_Close_Log_Return         1  0.0255           119
-11  Within-DataDict  USDJPY_Close_Log_Return  XAGUSD_Close_Log_Return         2  0.0489           110
-12  Within-DataDict  GBPUSD_Close_Log_Return     DXY_Close_Log_Return         2  0.0442           119
+0   Within-DataDict  USDCAD_Close_Log_Return  GBPUSD_Close_Log_Return         1  0.0272         17081
+1   Within-DataDict  USDCHF_Close_Log_Return  GBPUSD_Close_Log_Return         1  0.0162         17083
+2   Within-DataDict  NZDUSD_Close_Log_Return  GBPUSD_Close_Log_Return         5  0.0152         17084
+3   Within-DataDict  GBPUSD_Close_Log_Return  AUDUSD_Close_Log_Return         1  0.0479         17081
+4   Within-DataDict  USDCAD_Close_Log_Return  AUDUSD_Close_Log_Return         1  0.0378         17081
+5   Within-DataDict  USDCHF_Close_Log_Return  AUDUSD_Close_Log_Return         5  0.0074         17083
+6   Within-DataDict  USDJPY_Close_Log_Return  AUDUSD_Close_Log_Return         5  0.0009         17065
+7   Within-DataDict  GBPUSD_Close_Log_Return  USDCAD_Close_Log_Return         5  0.0163         17081
+8   Within-DataDict  USDCHF_Close_Log_Return  USDCAD_Close_Log_Return         5  0.0000         17082
+9   Within-DataDict  USDJPY_Close_Log_Return  USDCAD_Close_Log_Return         5  0.0183         17064
+10  Within-DataDict  NZDUSD_Close_Log_Return  USDCAD_Close_Log_Return         5  0.0038         17085
+11  Within-DataDict     DXY_Close_Log_Return  USDCAD_Close_Log_Return         5  0.0001         17026
+12  Within-DataDict  GBPUSD_Close_Log_Return  USDCHF_Close_Log_Return         3  0.0185         17083
+13  Within-DataDict     DXY_Close_Log_Return  USDCHF_Close_Log_Return         4  0.0022         17030
+14  Within-DataDict  GBPUSD_Close_Log_Return  USDJPY_Close_Log_Return         2  0.0420         17063
+15  Within-DataDict  AUDUSD_Close_Log_Return  NZDUSD_Close_Log_Return         1  0.0000         17086
+16  Within-DataDict  USDCAD_Close_Log_Return  NZDUSD_Close_Log_Return         3  0.0040         17085
+17  Within-DataDict  USDCHF_Close_Log_Return  NZDUSD_Close_Log_Return         4  0.0065         17086
+18  Within-DataDict  USDJPY_Close_Log_Return  NZDUSD_Close_Log_Return         3  0.0069         17069
+19  Within-DataDict     DXY_Close_Log_Return  NZDUSD_Close_Log_Return         4  0.0305         17030
+20  Within-DataDict  AUDUSD_Close_Log_Return  XAUUSD_Close_Log_Return         1  0.0368         15550
+21  Within-DataDict  XAGUSD_Close_Log_Return  XAUUSD_Close_Log_Return         5  0.0001         15544
+22  Within-DataDict  AUDUSD_Close_Log_Return  XAGUSD_Close_Log_Return         5  0.0101         15541
+23  Within-DataDict  XAUUSD_Close_Log_Return  XAGUSD_Close_Log_Return         5  0.0000         15544
+24  Within-DataDict  USDCHF_Close_Log_Return     DXY_Close_Log_Return         3  0.0130         17030
 [OK] Granger H1 berhasil.
 
 === Map Significant Exog H1 ===
 [OK] Map Significant Exog H1 berhasil.
-  [INFO] Exog map for H1: {'GBPUSD_Close_Log_Return': ['USDCAD_Close_Log_Return', 'XAUUSD_Close_Log_Return'], 'AUDUSD_Close_Log_Return': ['NZDUSD_Close_Log_Return', 'XAUUSD_Close_Log_Return', 'DXY_Close_Log_Return'], 'USDCAD_Close_Log_Return': ['GBPUSD_Close_Log_Return', 'USDCHF_Close_Log_Return', 'USDJPY_Close_Log_Return', 'NZDUSD_Close_Log_Return', 'DXY_Close_Log_Return'], 'NZDUSD_Close_Log_Return': ['AUDUSD_Close_Log_Return'], 'XAGUSD_Close_Log_Return': ['USDJPY_Close_Log_Return'], 'DXY_Close_Log_Return': ['GBPUSD_Close_Log_Return']}
+  [INFO] Exog map for H1: {'GBPUSD_Close_Log_Return': ['USDCAD_Close_Log_Return', 'USDCHF_Close_Log_Return', 'NZDUSD_Close_Log_Return'], 'AUDUSD_Close_Log_Return': ['GBPUSD_Close_Log_Return', 'USDCAD_Close_Log_Return', 'USDCHF_Close_Log_Return', 'USDJPY_Close_Log_Return'], 'USDCAD_Close_Log_Return': ['GBPUSD_Close_Log_Return', 'USDCHF_Close_Log_Return', 'USDJPY_Close_Log_Return', 'NZDUSD_Close_Log_Return', 'DXY_Close_Log_Return'], 'USDCHF_Close_Log_Return': ['GBPUSD_Close_Log_Return', 'DXY_Close_Log_Return'], 'USDJPY_Close_Log_Return': ['GBPUSD_Close_Log_Return'], 'NZDUSD_Close_Log_Return': ['AUDUSD_Close_Log_Return', 'USDCAD_Close_Log_Return', 'USDCHF_Close_Log_Return', 'USDJPY_Close_Log_Return', 'DXY_Close_Log_Return'], 'XAUUSD_Close_Log_Return': ['AUDUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return'], 'XAGUSD_Close_Log_Return': ['AUDUSD_Close_Log_Return', 'XAUUSD_Close_Log_Return'], 'DXY_Close_Log_Return': ['USDCHF_Close_Log_Return']}
 [OK] Granger H1 berhasil.
 
-[INFO] Melatih model untuk grup: FX_Majors_D1
-[INFO] Menggunakan eksogen signifikan untuk grup FX_Majors_D1: ['USDCAD_Close_Log_Return', 'XAUUSD_Close_Log_Return', 'NZDUSD_Close_Log_Return', 'DXY_Close_Log_Return']
-[INFO] Fitting model VARX/ARX untuk grup FX_Majors_D1, Endog: ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return']
+[INFO] Melatih model untuk grup: FX_Majors
+[INFO] Menggunakan eksogen signifikan untuk grup FX_Majors: ['USDCAD_Close_Log_Return', 'USDCHF_Close_Log_Return', 'NZDUSD_Close_Log_Return']
+[INFO] Fitting model VARX/ARX untuk grup FX_Majors, Endog: ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return']
 [DEBUG] fit_varx_or_arx received maxlags: 5
-[OK] Model VARMAX fitted for group FX_Majors_D1. Lags=1, Num Exog=4, R²={'GBPUSD_Close_Log_Return': np.float64(0.0442308336790479), 'AUDUSD_Close_Log_Return': np.float64(0.06903750115356433), 'USDJPY_Close_Log_Return': np.float64(0.03619779641444887)}
+[OK] Model VARMAX fitted for group FX_Majors. Lags=1, Num Exog=3, R²={'GBPUSD_Close_Log_Return': np.float64(0.0006146041136233515), 'AUDUSD_Close_Log_Return': np.float64(0.0006264583620467779), 'USDJPY_Close_Log_Return': np.float64(0.0004464170920239763)}
 
-[INFO] Melatih model untuk grup: Commodities_H1
-[INFO] Menggunakan eksogen signifikan untuk grup Commodities_H1: ['USDJPY_Close_Log_Return']
-[INFO] Fitting model VARX/ARX untuk grup Commodities_H1, Endog: ['XAUUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return']
+[INFO] Melatih model untuk grup: Commodities
+[INFO] Menggunakan eksogen signifikan untuk grup Commodities: ['AUDUSD_Close_Log_Return']
+[INFO] Fitting model VARX/ARX untuk grup Commodities, Endog: ['XAUUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return']
 [DEBUG] fit_varx_or_arx received maxlags: 5
-[OK] Model VARMAX fitted for group Commodities_H1. Lags=1, Num Exog=1, R²={'XAUUSD_Close_Log_Return': np.float64(0.023289174395924817), 'XAGUSD_Close_Log_Return': np.float64(0.019778160579795534)}
+[OK] Model VARMAX fitted for group Commodities. Lags=5, Num Exog=1, R²={'XAUUSD_Close_Log_Return': np.float64(0.0033996198938828215), 'XAGUSD_Close_Log_Return': np.float64(0.009188214071917278)}
 
-[INFO] Melatih model untuk grup: Risk_D1
+[INFO] Melatih model untuk grup: Risk
 [WARN] Data untuk 'US500_Close_Log_Return' tidak ditemukan di log_returns_dict. Lewati.
-[INFO] Menggunakan eksogen signifikan untuk grup Risk_D1: ['GBPUSD_Close_Log_Return']
-[INFO] Fitting model VARX/ARX untuk grup Risk_D1, Endog: ['US500_Close_Log_Return', 'DXY_Close_Log_Return']
+[INFO] Menggunakan eksogen signifikan untuk grup Risk: ['USDCHF_Close_Log_Return']
+[INFO] Fitting model VARX/ARX untuk grup Risk, Endog: ['US500_Close_Log_Return', 'DXY_Close_Log_Return']
 [DEBUG] fit_varx_or_arx received maxlags: 5
-[ERROR] Terjadi error saat fitting model untuk grup Risk_D1: "['US500_Close_Log_Return'] not in index"
+[ERROR] Terjadi error saat fitting model untuk grup Risk: "['US500_Close_Log_Return'] not in index"
 
 [INFO] Ringkasan Hasil Fitting Model VARX/ARX (Grup):
-            Group           Endog_Variable Model_Type  Lags_Used  Num_Exog        R2
-1    FX_Majors_D1  AUDUSD_Close_Log_Return     VARMAX        1.0         4  0.069038
-0    FX_Majors_D1  GBPUSD_Close_Log_Return     VARMAX        1.0         4  0.044231
-2    FX_Majors_D1  USDJPY_Close_Log_Return     VARMAX        1.0         4  0.036198
-3  Commodities_H1  XAUUSD_Close_Log_Return     VARMAX        1.0         1  0.023289
-4  Commodities_H1  XAGUSD_Close_Log_Return     VARMAX        1.0         1  0.019778
+         Group           Endog_Variable Model_Type  Lags_Used  Num_Exog        R2
+4  Commodities  XAGUSD_Close_Log_Return     VARMAX        5.0         1  0.009188
+3  Commodities  XAUUSD_Close_Log_Return     VARMAX        5.0         1  0.003400
+1    FX_Majors  AUDUSD_Close_Log_Return     VARMAX        1.0         3  0.000626
+0    FX_Majors  GBPUSD_Close_Log_Return     VARMAX        1.0         3  0.000615
+2    FX_Majors  USDJPY_Close_Log_Return     VARMAX        1.0         3  0.000446
 
 [OK] Proses fitting model selesai. Fitted models stored in 'models' dictionary.
 
@@ -763,20 +772,20 @@ Tidak ada peramalan harga OHLC yang berhasil direstorasi.
 
 
 ==== Model Summary ====
-            Group           Endog_Variable Model_Type  Lags_Used  Num_Exog        R2  TF
-0    FX_Majors_D1  GBPUSD_Close_Log_Return     VARMAX        2.0         1  0.392596  D1
-1    FX_Majors_D1  AUDUSD_Close_Log_Return     VARMAX        2.0         1  0.488588  D1
-2    FX_Majors_D1  USDJPY_Close_Log_Return     VARMAX        2.0         1  0.406350  D1
-3  Commodities_H1  XAUUSD_Close_Log_Return     VARMAX        2.0         4  0.542050  D1
-4  Commodities_H1  XAGUSD_Close_Log_Return     VARMAX        2.0         4  0.589031  D1
-5         Risk_D1   US500_Close_Log_Return     VARMAX        1.0         1  0.066285  D1
-6         Risk_D1     DXY_Close_Log_Return     VARMAX        1.0         1  0.088735  D1
-0    FX_Majors_D1  GBPUSD_Close_Log_Return     VARMAX        1.0         4  0.044231  H1
-1    FX_Majors_D1  AUDUSD_Close_Log_Return     VARMAX        1.0         4  0.069038  H1
-2    FX_Majors_D1  USDJPY_Close_Log_Return     VARMAX        1.0         4  0.036198  H1
-3  Commodities_H1  XAUUSD_Close_Log_Return     VARMAX        1.0         1  0.023289  H1
-4  Commodities_H1  XAGUSD_Close_Log_Return     VARMAX        1.0         1  0.019778  H1
-5         Risk_D1                      N/A       None        NaN         1       NaN  H1
+         Group           Endog_Variable Model_Type  Lags_Used  Num_Exog        R2  TF
+0    FX_Majors  GBPUSD_Close_Log_Return     VARMAX        1.0         3  0.013976  D1
+1    FX_Majors  AUDUSD_Close_Log_Return     VARMAX        1.0         3  0.014859  D1
+2    FX_Majors  USDJPY_Close_Log_Return     VARMAX        1.0         3  0.027047  D1
+3  Commodities  XAUUSD_Close_Log_Return     VARMAX        5.0         2  0.057406  D1
+4  Commodities  XAGUSD_Close_Log_Return     VARMAX        5.0         2  0.082286  D1
+5         Risk   US500_Close_Log_Return     VARMAX        5.0         4  0.119560  D1
+6         Risk     DXY_Close_Log_Return     VARMAX        5.0         4  0.049646  D1
+0    FX_Majors  GBPUSD_Close_Log_Return     VARMAX        1.0         3  0.000615  H1
+1    FX_Majors  AUDUSD_Close_Log_Return     VARMAX        1.0         3  0.000626  H1
+2    FX_Majors  USDJPY_Close_Log_Return     VARMAX        1.0         3  0.000446  H1
+3  Commodities  XAUUSD_Close_Log_Return     VARMAX        5.0         1  0.003400  H1
+4  Commodities  XAGUSD_Close_Log_Return     VARMAX        5.0         1  0.009188  H1
+5         Risk                      N/A       None        NaN         1       NaN  H1
 
 ==== Combined Log Returns Forecasts ====
 No combined log returns forecasts generated.
