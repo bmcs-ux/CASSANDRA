@@ -1,5 +1,5 @@
 ==== Pipeline Execution Log ====
-[INFO] Starting pipeline run with ID: pipeline_run_20260301_135656
+[INFO] Starting pipeline run with ID: pipeline_run_20260301_171844
 
 === Unduh FRED ===
 [INFO] Mengambil data dari 2016-03-03 hingga 2026-03-01
@@ -453,15 +453,32 @@ date dtype: datetime64[ns, UTC], tz: UTC
 
 ⚙️ Menjalankan Auto VARX/SARIMAX Forecasting...
   Input combined_log_returns_dict keys: ['GBPUSD', 'AUDUSD', 'USDCAD', 'USDCHF', 'USDJPY', 'NZDUSD', 'XAUUSD', 'XAGUSD']
-  Input fitted_models keys: ['FX_Majors', 'Commodities']
+  First value type in combined_log_returns_dict: <class 'pandas.core.frame.DataFrame'>
   Input final_stationarized_fred_data columns: ['EFFRVOL_Transformed', 'T5YIE_level_Transformed', 'T5YIE_diff_Transformed', 'effective_until_next_release']
 
 🔍 Forecasting using model for: FX_Majors
-  [ERROR] Gagal melakukan peramalan untuk FX_Majors: "['XAUUSD_Close_Log_Return', 'NZDUSD_Close_Log_Return'] not in index"
+  Prepared future_index (D freq): 2026-02-28 to 2026-03-04
+  Model k_exog: 3
+  Significant exog names aggregated for model FX_Majors: ['EFFRVOL_Transformed', 'XAUUSD_Close_Log_Return', 'NZDUSD_Close_Log_Return']
+  Last value for 'EFFRVOL_Transformed': 0.0
+  Constructed future_exog DataFrame. Shape: (5, 3), Columns: Index(['EFFRVOL_Transformed', 'XAUUSD_Close_Log_Return',
+       'NZDUSD_Close_Log_Return'],
+      dtype='object')
+  ℹ️ Using model.get_forecast with future_exog.
+  -> OK (get_forecast): forecast shape (5, 4), columns ['mean', 'mean_se', 'mean_ci_lower', 'mean_ci_upper']
 
 🔍 Forecasting using model for: Commodities
-  Tidak ada exogen yang relevan untuk model ini.
-  [ERROR] Gagal melakukan peramalan untuk Commodities: cannot access local variable 'future_dates' where it is not associated with a value
+  Prepared future_index (D freq): 2026-02-28 to 2026-03-04
+  Model k_exog: 0
+  ℹ️ Model does not have exogenous variables (k_exog=0). Forecasting without exog.
+  ℹ️ Using model.get_forecast without exog.
+  -> OK (get_forecast): forecast shape (5, 4), columns ['mean', 'mean_se', 'mean_ci_lower', 'mean_ci_upper']
+
+✅ Auto VARX/SARIMAX Forecasting finished.
+
+📊 Forecasts generated for:
+  • FX_Majors: Shape (5, 4), Columns: ['mean', 'mean_se', 'mean_ci_lower', 'mean_ci_upper']
+  • Commodities: Shape (5, 4), Columns: ['mean', 'mean_se', 'mean_ci_lower', 'mean_ci_upper']
 [OK] Generate Combined Forecasts berhasil.
 
 [OK] Peramalan gabungan selesai. Hasil disimpan dalam dictionary 'combined_forecasts_with_intervals'.
@@ -469,10 +486,20 @@ date dtype: datetime64[ns, UTC], tz: UTC
 [INFO] Hasil Peramalan (Log Return dengan Interval Kepercayaan):
 
 --- Peramalan untuk: FX_Majors ---
- (DataFrame kosong)
+GBPUSD_Close_Log_Return        mean   mean_se  mean_ci_lower  mean_ci_upper
+2026-02-28 00:00:00+00:00  0.000448  0.004110      -0.007607       0.008502
+2026-03-01 00:00:00+00:00  0.000235  0.004134      -0.007868       0.008338
+2026-03-02 00:00:00+00:00  0.000252  0.004134      -0.007852       0.008355
+2026-03-03 00:00:00+00:00  0.000250  0.004134      -0.007853       0.008354
+2026-03-04 00:00:00+00:00  0.000250  0.004134      -0.007853       0.008354
 
 --- Peramalan untuk: Commodities ---
- (DataFrame kosong)
+XAUUSD_Close_Log_Return        mean   mean_se  mean_ci_lower  mean_ci_upper
+2026-02-28 00:00:00+00:00  0.001722  0.012267      -0.022320       0.025764
+2026-03-01 00:00:00+00:00  0.000987  0.012295      -0.023111       0.025085
+2026-03-02 00:00:00+00:00 -0.001098  0.012467      -0.025533       0.023336
+2026-03-03 00:00:00+00:00  0.003028  0.012508      -0.021487       0.027542
+2026-03-04 00:00:00+00:00  0.001361  0.012536      -0.023209       0.025931
 
 [INFO] Mengrestorasi peramalan log return ke peramalan harga (OHLC) dengan interval kepercayaan...
 
@@ -492,14 +519,32 @@ Tidak ada peramalan harga OHLC yang berhasil direstorasi.
 
 ⚙️ Menjalankan Auto VARX/SARIMAX Forecasting...
   Input combined_log_returns_dict keys: ['GBPUSD', 'AUDUSD', 'USDCAD', 'USDCHF', 'USDJPY', 'NZDUSD', 'XAUUSD', 'XAGUSD']
-  Input fitted_models keys: ['FX_Majors', 'Commodities']
+  First value type in combined_log_returns_dict: <class 'pandas.core.frame.DataFrame'>
   Input final_stationarized_fred_data columns: ['EFFRVOL_Transformed', 'T5YIE_level_Transformed', 'T5YIE_diff_Transformed', 'effective_until_next_release']
 
 🔍 Forecasting using model for: FX_Majors
-  [ERROR] Gagal melakukan peramalan untuk FX_Majors: 'dict' object has no attribute 'columns'
+  Prepared future_index (D freq): 2026-02-28 to 2026-03-04
+  Model k_exog: 4
+  Significant exog names aggregated for model FX_Majors: ['USDCHF_Close_Log_Return', 'USDCAD_Close_Log_Return', 'XAGUSD_Close_Log_Return', 'NZDUSD_Close_Log_Return']
+  Constructed future_exog DataFrame. Shape: (5, 4), Columns: Index(['USDCAD_Close_Log_Return', 'NZDUSD_Close_Log_Return',
+       'USDCHF_Close_Log_Return', 'XAGUSD_Close_Log_Return'],
+      dtype='object')
+  ℹ️ Using model.get_forecast with future_exog.
+  -> OK (get_forecast): forecast shape (5, 4), columns ['mean', 'mean_se', 'mean_ci_lower', 'mean_ci_upper']
 
 🔍 Forecasting using model for: Commodities
-  [ERROR] Gagal melakukan peramalan untuk Commodities: 'dict' object has no attribute 'columns'
+  Prepared future_index (D freq): 2026-02-28 to 2026-03-04
+  Model k_exog: 2
+  Significant exog names aggregated for model Commodities: ['USDCHF_Close_Log_Return', 'USDJPY_Close_Log_Return']
+  Constructed future_exog DataFrame. Shape: (5, 2), Columns: Index(['USDCHF_Close_Log_Return', 'USDJPY_Close_Log_Return'], dtype='object')
+  ℹ️ Using model.get_forecast with future_exog.
+  -> OK (get_forecast): forecast shape (5, 4), columns ['mean', 'mean_se', 'mean_ci_lower', 'mean_ci_upper']
+
+✅ Auto VARX/SARIMAX Forecasting finished.
+
+📊 Forecasts generated for:
+  • FX_Majors: Shape (5, 4), Columns: ['mean', 'mean_se', 'mean_ci_lower', 'mean_ci_upper']
+  • Commodities: Shape (5, 4), Columns: ['mean', 'mean_se', 'mean_ci_lower', 'mean_ci_upper']
 [OK] Generate Combined Forecasts berhasil.
 
 [OK] Peramalan gabungan selesai. Hasil disimpan dalam dictionary 'combined_forecasts_with_intervals'.
@@ -507,10 +552,20 @@ Tidak ada peramalan harga OHLC yang berhasil direstorasi.
 [INFO] Hasil Peramalan (Log Return dengan Interval Kepercayaan):
 
 --- Peramalan untuk: FX_Majors ---
- (DataFrame kosong)
+GBPUSD_Close_Log_Return        mean   mean_se  mean_ci_lower  mean_ci_upper
+2026-02-28 00:00:00+00:00  0.000019  0.000916      -0.001777       0.001815
+2026-03-01 00:00:00+00:00  0.000013  0.000916      -0.001783       0.001809
+2026-03-02 00:00:00+00:00  0.000013  0.000916      -0.001783       0.001809
+2026-03-03 00:00:00+00:00  0.000013  0.000916      -0.001783       0.001809
+2026-03-04 00:00:00+00:00  0.000013  0.000916      -0.001783       0.001809
 
 --- Peramalan untuk: Commodities ---
- (DataFrame kosong)
+XAUUSD_Close_Log_Return        mean   mean_se  mean_ci_lower  mean_ci_upper
+2026-02-28 00:00:00+00:00 -0.000082  0.002661      -0.005298       0.005134
+2026-03-01 00:00:00+00:00  0.000113  0.002664      -0.005108       0.005335
+2026-03-02 00:00:00+00:00  0.000119  0.002664      -0.005102       0.005341
+2026-03-03 00:00:00+00:00  0.000011  0.002665      -0.005211       0.005234
+2026-03-04 00:00:00+00:00  0.000049  0.002665      -0.005174       0.005273
 
 [INFO] Mengrestorasi peramalan log return ke peramalan harga (OHLC) dengan interval kepercayaan...
 
