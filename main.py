@@ -534,46 +534,6 @@ def fit_dcc_garch_models(log_stream, residuals_df):
         log_stream.write(f"[ERROR] Failed to fit DCC-GARCH model: {e}")
         return None
 
-# Helper function to extract residuals and ensure proper format for DCC-GARCH
-def prepare_residuals_for_dcc_garch(log_stream, ensemble_results, log_returns_dict, tf_label="H1"):
-    """
-    Versi perbaikan yang fokus mengekstrak residual dari dictionary model pada TF tertentu.
-    """
-    all_residuals = {}
-
-    if not ensemble_results:
-        log_stream.write(f"[WARN] ensemble_results kosong untuk {tf_label}. Skipping.\n")
-        return None
-
-    # Kita langsung iterasi grup (misal: FX_Majors, Commodities)
-    for group_name, model_result in ensemble_results.items():
-        if 'fitted_model' in model_result and hasattr(model_result['fitted_model'], 'resid'):
-            fitted_model_obj = model_result['fitted_model']
-            endog_names = model_result.get('endog_names', [])
-
-            # Ekstraksi residual untuk setiap variabel dalam grup
-            for endog_name in endog_names:
-                if endog_name in fitted_model_obj.resid.columns:
-                    resid_series = fitted_model_obj.resid[endog_name].dropna()
-                    if not resid_series.empty:
-                        # Gunakan label TF agar unik jika digabung nanti
-                        all_residuals[f"{endog_name}_{tf_label}"] = resid_series
-                    else:
-                        log_stream.write(f"[WARN] Residual {endog_name} kosong setelah dropna.\n")
-                else:
-                    log_stream.write(f"[WARN] Kolom {endog_name} tidak ditemukan di resid model {group_name}.\n")
-        else:
-            log_stream.write(f"[WARN] Model {group_name} tidak memiliki atribut 'resid'.\n")
-
-    if not all_residuals:
-        log_stream.write(f"[WARN] Tidak ada residual yang berhasil diekstrak untuk {tf_label}.\n")
-        return None
-
-    # Gabungkan dengan INNER JOIN agar index waktu sinkron untuk DCC-GARCH
-    residuals_df_combined = pd.concat(all_residuals.values(), axis=1, keys=all_residuals.keys(), join='inner')
-
-    log_stream.write(f"[INFO] Berhasil menggabungkan {len(all_residuals)} seri residual. Shape: {residuals_df_combined.shape}\n")
-    return residuals_df_combined
 
 # ============================================================
 # 5\" FORECASTING & RESTORATION
@@ -866,13 +826,14 @@ def main():
             ensemble_results['M1'] = kalman_models_m1
 
     # === 6. VOLATILITY (H1) & SAVE ===
+    # DCC-GARCH models will be fitted using residuals from VARX models
+    fitted_dcc_garch_models = {}
     if 'H1' in ensemble_results and mtf_log_returns.get('H1'):
         # First, prepare the residuals using the dedicated helper function
         h1_residuals_df = safe_run("Prepare H1 Residuals for DCC-GARCH", log_stream,
                                    prepare_residuals_for_dcc_garch,
-                                   ensemble_results['H1'],
-                                   mtf_log_returns.get('H1'),
-                                   'H1')
+                                   ensemble_results,     # Kirim dict model
+                                   mtf_log_returns)  # Kirim data return
 
         if h1_residuals_df is not None and not h1_residuals_df.empty:
             # Then, fit the DCC-GARCH model with the prepared residuals
