@@ -18,8 +18,8 @@ PAIRS = {
     'XAUUSD': 'XAUUSD',   # Gold
     'XAGUSD': 'XAGUSD',   # Silver
     #'USOIL': 'USOIL',     # Crude Oil
-    #'US500': 'US500',
-    #'DXY': 'DXY',
+    'US500': 'US500',
+    'DXY': 'DXY',
 }
 ALL_SYMBOLS = list(PAIRS.values())
 

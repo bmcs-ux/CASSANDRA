@@ -20,6 +20,8 @@ for mod in modules_to_reload:
 
 # === Import Modul Utama & Parameter ===
 import parameter
+import fitted_models.dcc_garch # Explicitly import to ensure it's in sys.modules for reloading
+from fitted_models.dcc_garch import DCCGARCH # Tambahkan impor DCCGARCH di sini
 
 # 1. Data Acquisition (Pair & Macro)
 # Menggunakan fungsi MTF yang sudah kita sesuaikan
@@ -516,16 +518,10 @@ def fit_dcc_garch_models(log_stream, residuals_df):
             # For simplicity, let's use a standard GARCH(1,1) spec
             garch_specs[col] = {'power': 2, 'p': 1, 'o': 0, 'q': 1}
 
-        dcc_model = DCCGARCH(residuals_df, p=1, q=1)
-        # dcc_model.resids_initial = residuals_df # Set initial residuals if the class expects it
-        # You might need to manually set `resids_initial` or similar properties
-        # if the DCCGARCH class requires them to be set before `fit`.
-
-        # If DCCGARCH directly takes `resids` argument in fit or __init__
-        # then the above line `dcc_model = DCCGARCH(residuals_df, p=1, q=1)` should be enough.
-
-        # The `fit` method might take optimization options
-        res = dcc_model.fit(disp='off')
+        # Initialize DCCGARCH with p and q, as expected by its constructor
+        dcc_model = DCCGARCH(p=1, q=1)
+        # Pass residuals_df to the fit method
+        res = dcc_model.fit(resids=residuals_df, disp='off')
 
         log_stream.write("[OK] DCC-GARCH model fitted successfully.")
         return res
@@ -838,7 +834,7 @@ def main():
         if h1_residuals_df is not None and not h1_residuals_df.empty:
             # Then, fit the DCC-GARCH model with the prepared residuals
             fitted_dcc_garch_models_h1 = safe_run("Fit DCC-GARCH for H1", log_stream,
-                                                  fit_dcc_garch_to_residuals,
+                                                  fit_dcc_garch_models,
                                                   h1_residuals_df)
             if fitted_dcc_garch_models_h1: # Assuming it returns a dict of models
                 fitted_dcc_garch_models['H1'] = fitted_dcc_garch_models_h1
