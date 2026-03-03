@@ -162,7 +162,7 @@ def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
 
     return aligned
 # ============================================================
-# 1\" LOAD DATA
+# 1. LOAD DATA
 # ============================================================
 
 # Removed redundant load_base_data wrapper function
@@ -170,7 +170,7 @@ def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
 # Removed redundant load_fred_data wrapper function
 
 # ============================================================
-# 2\" PREPROCESSING
+# 2. PREPROCESSING
 # ============================================================
 
 
@@ -231,7 +231,7 @@ def setup_kalman_filter_compat(log_stream, df_m1):
         return setup_kalman_filter(df_m1)
 
 # ============================================================
-# 3\" GRANGER TESTS
+# 3. GRANGER TESTS
 # ============================================================
 
 def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1"): # Renamed from run_granger_all_mtf
@@ -506,25 +506,16 @@ def fit_dcc_garch_models(log_stream, residuals_df):
         # Ensure residuals are float type
         residuals_df = residuals_df.astype(float)
 
-        # Initialize and fit the DCC-GARCH model
-        # You might need to adjust the model parameters (e.g., p, o, q for GARCH, P, Q for DCC)
-        # based on your specific requirements or model selection criteria.
-        # For demonstration, using a simple (1,1) GARCH for univariate and (1,1) for DCC
-
-        # Define univariate GARCH specifications for each series
-        garch_specs = {}
-        for col in residuals_df.columns:
-            # Fit a GARCH(1,1) to each series to get starting values or just use default
-            # For simplicity, let's use a standard GARCH(1,1) spec
-            garch_specs[col] = {'power': 2, 'p': 1, 'o': 0, 'q': 1}
-
-        # Initialize DCCGARCH with p and q, as expected by its constructor
-        dcc_model = DCCGARCH(p=1, q=1)
-        # Pass residuals_df to the fit method
-        res = dcc_model.fit(resids=residuals_df, disp='off')
+        # DCCGARCH constructor tidak menerima argumen p/q; parameter diestimasi saat fit.
+        dcc_model = DCCGARCH()
+        dcc_model.fit(
+            eps=residuals_df.to_numpy(),
+            column_names=list(residuals_df.columns),
+            disp=False,
+        )
 
         log_stream.write("[OK] DCC-GARCH model fitted successfully.")
-        return res
+        return dcc_model
 
     except Exception as e:
         log_stream.write(f"[ERROR] Failed to fit DCC-GARCH model: {e}")
@@ -532,7 +523,7 @@ def fit_dcc_garch_models(log_stream, residuals_df):
 
 
 # ============================================================
-# 5\" FORECASTING & RESTORATION
+# 5. FORECASTING & RESTORATION
 # ============================================================
 
 
@@ -836,7 +827,7 @@ def main():
             fitted_dcc_garch_models_h1 = safe_run("Fit DCC-GARCH for H1", log_stream,
                                                   fit_dcc_garch_models,
                                                   h1_residuals_df)
-            if fitted_dcc_garch_models_h1: # Assuming it returns a dict of models
+            if fitted_dcc_garch_models_h1: # Menyimpan objek model DCC-GARCH untuk H1
                 fitted_dcc_garch_models['H1'] = fitted_dcc_garch_models_h1
         else:
             log_stream.write("[WARN] H1 residuals not available or empty for DCC-GARCH fitting.\n")
