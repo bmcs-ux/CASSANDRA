@@ -557,7 +557,7 @@ def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_gar
         log_stream.write("Tidak ada peramalan log return gabungan yang dihasilkan.\n")
 
 
-    log_stream.write("\n[INFO] Mengrestorasi peramalan log return ke peramalan harga (OHLC) dengan interval kepercayaan...\n")
+    log_stream.write("\n[INFO] Merestorasi peramalan log return ke peramalan harga (OHLC) dengan interval kepercayaan...\n")
 
     if not combined_forecasts_with_intervals or not base_data:
         log_stream.write("[WARN] Data peramalan gabungan atau data harga base (base_dfs) tidak lengkap. Melewati restorasi peramalan harga.\n")
