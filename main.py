@@ -13,13 +13,15 @@ if ROOT_DIR not in sys.path:
 
 # === Helper Reloading (Penting saat Development di Colab) ===
 # Memastikan perubahan pada file .py langsung terdeteksi tanpa restart runtime
-modules_to_reload = ['parameter', 'restored', 'fitted_models.dcc_garch_process', 'fitted_models.def_varx']
+modules_to_reload = ['parameter', 'restored', 'fitted_models.dcc_garch_process', 'fitted_models.def_varx', 'fitted_models.dcc_garch']
 for mod in modules_to_reload:
     if mod in sys.modules:
         importlib.reload(sys.modules[mod])
 
 # === Import Modul Utama & Parameter ===
 import parameter
+import fitted_models.dcc_garch # Explicitly import to ensure it's in sys.modules for reloading
+from fitted_models.dcc_garch import DCCGARCH # Tambahkan impor DCCGARCH di sini
 
 # 1. Data Acquisition (Pair & Macro)
 # Menggunakan fungsi MTF yang sudah kita sesuaikan
@@ -40,7 +42,7 @@ from fitted_models.def_varx import fit_varx_or_arx    # Corrected import: use fi
 from fitted_models.kalman_filter import setup_kalman_filter
 
 # 4. Volatility & Forecasting
-from fitted_models.dcc_garch_process import fit_dcc_garch_to_residuals # Corrected import: use fit_dcc_garch_to_residuals
+from fitted_models.dcc_garch_process import fit_dcc_garch_to_residuals, prepare_residuals_for_dcc_garch # Corrected import: use fit_dcc_garch_to_residuals
 from forecast import auto_varx_forecast
 from restored import restore_log_returns_to_price # Tetap diimport untuk validasi di Colab
 
@@ -160,7 +162,7 @@ def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
 
     return aligned
 # ============================================================
-# 1\" LOAD DATA
+# 1. LOAD DATA
 # ============================================================
 
 # Removed redundant load_base_data wrapper function
@@ -168,7 +170,7 @@ def align_mtf_data_to_common_close(log_stream, mtf_base_dfs):
 # Removed redundant load_fred_data wrapper function
 
 # ============================================================
-# 2\" PREPROCESSING
+# 2. PREPROCESSING
 # ============================================================
 
 
@@ -229,7 +231,7 @@ def setup_kalman_filter_compat(log_stream, df_m1):
         return setup_kalman_filter(df_m1)
 
 # ============================================================
-# 3\" GRANGER TESTS
+# 3. GRANGER TESTS
 # ============================================================
 
 def run_granger_all(log_stream, log_returns, cleaned_fred, timeframe_label="D1"): # Renamed from run_granger_all_mtf
@@ -356,8 +358,10 @@ def fit_models(log_stream, log_returns_dict, exog_map, combined_fred_for_model_d
             if pair_name_from_endog and pair_name_from_endog in log_returns_dict:
                 df_log_return_pair = log_returns_dict[pair_name_from_endog]
                 # The column name in df_log_return_pair is already the full name, e.g., 'GBPUSD_Close_Log_Return'
+                # FIX: Remove incorrect stripping of pair_name prefix. Use endog_full_name directly.
                 if not df_log_return_pair.empty and endog_full_name in df_log_return_pair.columns:
-                    endog_data_frames.append(df_log_return_pair[[endog_full_name]]) # No need to rename, it's already the correct name
+                    # FIX: No renaming needed if column is already correct
+                    endog_data_frames.append(df_log_return_pair[[endog_full_name]])
                 else:
                     log_stream.write(f"[WARN] Kolom '{endog_full_name}' tidak ditemukan di data '{pair_name_from_endog}'. Lewati.\n")
             else:
@@ -481,43 +485,45 @@ def fit_models(log_stream, log_returns_dict, exog_map, combined_fred_for_model_d
     return models, varx_fit_df
 
 #----------DCC GARCH FITTING-----------
-def fit_dcc_garch_models(log_stream, ensemble_results, log_returns):
-    """Fits DCC-GARCH models to residuals from VARX/ARX models."""
-    log_stream.write("\n=== Fit DCC-GARCH Models ===\n")
+def fit_dcc_garch_models(log_stream, residuals_df):
+    """Fits a DCC-GARCH model to a DataFrame of residuals.
 
-    dcc_garch_input_data = {} # Prepare input for DCC-GARCH
-    for tf, models_tf in ensemble_results.items():
-        if tf in ['D1', 'H1']: # Assuming DCC-GARCH is relevant for these TFs
-            for model_key, model_result in models_tf.items():
-                if 'fitted_model' in model_result and hasattr(model_result['fitted_model'], 'resid'):
-                    # Extract residuals for each endogenous variable
-                    for endog_name in model_result['endog_names']:
-                        # Residuals are typically indexed by original series name or something similar
-                        # Need to match this with the expected input format for DCC-GARCH
-                        resid_series = model_result['fitted_model'].resid[endog_name] if endog_name in model_result['fitted_model'].resid.columns else model_result['fitted_model'].resid.squeeze()
-                        if not resid_series.empty:
-                            dcc_garch_input_data[f"{endog_name}_{tf}"] = resid_series # Tag with TF for uniqueness
-                        else:
-                            log_stream.write(f"[WARN] Residual for {endog_name} in {tf} is empty. Skipping.\n")
-                else:
-                    log_stream.write(f"[WARN] No fitted model or residuals found for {model_key} in {tf}. Skipping for DCC-GARCH.\n")
+    Args:
+        log_stream (StringIO): Stream to write log messages.
+        residuals_df (pd.DataFrame): DataFrame where each column represents the residuals
+                                     of an endogenous variable from a VARX/ARX model.
 
-    if not dcc_garch_input_data:
-        log_stream.write("[WARN] No valid residual data for DCC-GARCH fitting. Skipping.\n")
-        return {}
+    Returns:
+        DCCGARCH: A fitted DCCGARCH model object.
+    """
+    log_stream.write("[INFO] Fitting DCC-GARCH model to residuals...")
 
-    dcc_garch_df = pd.DataFrame(dcc_garch_input_data).dropna()
-    if dcc_garch_df.empty or len(dcc_garch_df) < parameter.MIN_OBS_FOR_GARCH: # Define MIN_OBS_FOR_GARCH in parameter.py
-        log_stream.write(f"[WARN] Insufficient data ({len(dcc_garch_df)} observations) for DCC-GARCH model fitting. Skipping.\n")
-        return {}
+    if residuals_df.empty:
+        log_stream.write("[WARN] Residuals DataFrame is empty. Skipping DCC-GARCH fitting.")
+        return None
 
-    # Assuming fit_dcc_garch_to_residuals is a function that takes a DataFrame of residuals
-    dcc_garch_models = safe_run("Fit DCC-GARCH to VARX/ARX residuals", log_stream, fit_dcc_garch_to_residuals, dcc_garch_df)
-    return dcc_garch_models if dcc_garch_models is not None else {}
+    try:
+        # Ensure residuals are float type
+        residuals_df = residuals_df.astype(float)
+
+        # DCCGARCH constructor tidak menerima argumen p/q; parameter diestimasi saat fit.
+        dcc_model = DCCGARCH()
+        dcc_model.fit(
+            eps=residuals_df.to_numpy(),
+            column_names=list(residuals_df.columns),
+            disp=False,
+        )
+
+        log_stream.write("[OK] DCC-GARCH model fitted successfully.")
+        return dcc_model
+
+    except Exception as e:
+        log_stream.write(f"[ERROR] Failed to fit DCC-GARCH model: {e}")
+        return None
 
 
 # ============================================================
-# 5\" FORECASTING & RESTORATION
+# 5. FORECASTING & RESTORATION
 # ============================================================
 
 
@@ -530,13 +536,11 @@ def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_gar
         combined_forecasts_with_intervals = {}
     else:
         combined_forecasts_with_intervals = safe_run("Generate Combined Forecasts", log_stream, auto_varx_forecast,
-                                                    fitted_varx_models=models, # Should be models by interval
-                                                    # fitted_dcc_garch_models=fitted_dcc_garch_models, # Pass only relevant DCC-GARCH for forecast
+                                                    fitted_models=models, # Corrected: Use 'fitted_models'
                                                     combined_log_returns_dict=log_returns_dict, # Needs to be dict by TF
                                                     final_stationarized_fred_data=cleaned_fred_data, # Only relevant for D1
-                                                    exog_map=exog_map, # Exog map for VARX, but structure needs to be MTF
-                                                    forecast_horizon=parameter.FORECAST_HORIZON, # Use parameter.FORECAST_HORIZON
-                                                    confidence_level=parameter.CONFIDENCE_LEVEL,
+                                                    significant_pair_exog_map=exog_map, # Renamed exog_map to significant_pair_exog_map
+                                                    forecast_horizon=parameter.FORECAST_HORIZON,
                                                     verbose=True)
 
     log_stream.write("\n[OK] Peramalan gabungan selesai. Hasil disimpan dalam dictionary 'combined_forecasts_with_intervals'.\n")
@@ -570,7 +574,7 @@ def forecasting_and_restore(log_stream, log_returns_dict, models, fitted_dcc_gar
         for pair_name, forecast_df in restored_price_forecasts_with_intervals.items():
             log_stream.write(f"\n--- Restorasi Harga Peramalan untuk Pair: {pair_name} (OHLC) ---\n")
             if not forecast_df.empty:
-                log_stream.write(forecast_df.head().to_string() + "\n")
+                log_stream.write(forecast_df.to_string() + "\n")
             else:
                 log_stream.write("DataFrame peramalan harga kosong.\n")
     else:
@@ -684,11 +688,6 @@ def main():
         log_returns_tf, cleaned_fred_tf, combined_log_returns_tf = preprocess_result
 
         log_stream.write(f"[DEBUG] Inside main loop for tf={tf}:\n") # New debug
-        log_stream.write(f"[DEBUG] Type of cleaned_fred_tf: {type(cleaned_fred_tf)}\n") # New debug
-        if isinstance(cleaned_fred_tf, pd.DataFrame): # New debug
-            log_stream.write(f"[DEBUG] cleaned_fred_tf shape: {cleaned_fred_tf.shape}\n") # New debug
-        else: # New debug
-            log_stream.write(f"[DEBUG] cleaned_fred_tf content: {cleaned_fred_tf}\n") # New debug
 
         if log_returns_tf is not None:
             mtf_log_returns[tf] = log_returns_tf
@@ -696,8 +695,61 @@ def main():
         else:
             log_stream.write(f"[DEBUG] log_returns_tf for {tf} was None.\n")
 
-        if tf == 'D1' and isinstance(cleaned_fred_tf, pd.DataFrame): # Assume FRED processing is primarily for D1
-            cleaned_fred_combined_df = cleaned_fred_tf # Store the cleaned FRED for D1 models
+        if tf == 'D1' and cleaned_fred_tf is not None:
+            if isinstance(cleaned_fred_tf, dict) and cleaned_fred_tf:
+                # Combine all individual FRED series DataFrames (from the dict) into one DataFrame
+                dfs_to_concat = []
+                # Keep track of the 'effective_until_next_release' column separately
+                effective_until_next_release_df = None
+
+                for series_name, df_series in cleaned_fred_tf.items():
+                    if not df_series.empty:
+                        # Extract only the value columns
+                        value_cols = [col for col in df_series.columns if col != 'effective_until_next_release']
+                        if value_cols:
+                            dfs_to_concat.append(df_series[value_cols])
+                            # Collect effective_until_next_release, if present, from the first non-empty df
+                            if effective_until_next_release_df is None and 'effective_until_next_release' in df_series.columns:
+                                effective_until_next_release_df = df_series[['effective_until_next_release']].copy()
+                        else:
+                            log_stream.write(f"[WARN] No value columns found in transformed FRED series '{series_name}'. Skipping.\n")
+                    else:
+                        log_stream.write(f"[WARN] Transformed FRED series '{series_name}' is empty. Skipping.\n")
+
+
+                if dfs_to_concat:
+                    # Concatenate all value columns
+                    combined_fred_values_df = pd.concat(dfs_to_concat, axis=1, join='outer')
+                    combined_fred_values_df = combined_fred_values_df.ffill().dropna(how='all')
+
+                    if effective_until_next_release_df is not None:
+                        # Merge the combined values with the effective_until_next_release
+                        cleaned_fred_combined_df = combined_fred_values_df.merge(
+                            effective_until_next_release_df,
+                            left_index=True,
+                            right_index=True,
+                            how='left'
+                        ).ffill()
+                        # Ensure effective_until_next_release is also UTC localized
+                        if 'effective_until_next_release' in cleaned_fred_combined_df.columns:
+                            if cleaned_fred_combined_df['effective_until_next_release'].dtype == 'datetime64[ns]':
+                                cleaned_fred_combined_df['effective_until_next_release'] = cleaned_fred_combined_df['effective_until_next_release'].dt.tz_localize('UTC', nonexistent='shift_forward', ambiguous='NaT')
+                    else:
+                        cleaned_fred_combined_df = combined_fred_values_df
+                        log_stream.write("[WARN] 'effective_until_next_release' column not found in any FRED series for D1 combination. Will proceed without it in cleaned_fred_combined_df.\n")
+
+                    # Ensure the final index is UTC localized.
+                    if cleaned_fred_combined_df.index.tz is None:
+                        cleaned_fred_combined_df = cleaned_fred_combined_df.tz_localize('UTC', nonexistent='shift_forward', ambiguous='NaT')
+
+                    log_stream.write(f"[INFO] FRED data for D1 successfully combined into a single DataFrame. Shape: {cleaned_fred_combined_df.shape}\n")
+                else:
+                    log_stream.write(f"[WARN] cleaned_fred_tf for D1 was a dict but contained no valid DataFrames to combine. cleaned_fred_combined_df remains empty.\n")
+            elif isinstance(cleaned_fred_tf, pd.DataFrame) and not cleaned_fred_tf.empty:
+                cleaned_fred_combined_df = cleaned_fred_tf # Fallback if it somehow is already a DataFrame (though unlikely for D1)
+                log_stream.write(f"[INFO] FRED data for D1 was already a DataFrame. Shape: {cleaned_fred_combined_df.shape}\n")
+            else:
+                log_stream.write(f"[WARN] cleaned_fred_tf for D1 is empty or not a dict/DataFrame. cleaned_fred_combined_df remains empty.\n")
 
         if combined_log_returns_tf is not None:
             mtf_exog_pool[tf] = combined_log_returns_tf # Store combined log returns for potential cross-asset exog
@@ -714,7 +766,7 @@ def main():
 
         # Granger Test: Only FRED data should be used as exogenous for D1
         granger_result = safe_run(f"Granger {tf}", log_stream, run_granger_all,
-                               mtf_log_returns.get(tf, {}), cleaned_fred_combined_df if tf == 'D1' else {}, timeframe_label=tf)
+                               mtf_log_returns.get(tf, {}), cleaned_fred_combined_df if tf == 'D1' else pd.DataFrame(), timeframe_label=tf)
         if not granger_result or not isinstance(granger_result, tuple) or len(granger_result) != 2:
             log_stream.write(f"[WARN] Granger {tf} tidak mengembalikan tuple 2 elemen. Eksogen dianggap kosong.\n")
             granger_results, exog_map_tf = pd.DataFrame(), {}
@@ -764,11 +816,21 @@ def main():
     # DCC-GARCH models will be fitted using residuals from VARX models
     fitted_dcc_garch_models = {}
     if 'H1' in ensemble_results and mtf_log_returns.get('H1'):
-        # pass ensemble_results (which contains the VARX models) and raw log_returns to fit_dcc_garch_models
-        fitted_dcc_garch_models_h1 = safe_run("Fit DCC-GARCH for H1", log_stream, fit_dcc_garch_to_residuals,
-                                              ensemble_results, mtf_log_returns.get('H1'))
-        if fitted_dcc_garch_models_h1: # Assuming it returns a dict of models
-            fitted_dcc_garch_models['H1'] = fitted_dcc_garch_models_h1
+        # First, prepare the residuals using the dedicated helper function
+        h1_residuals_df = safe_run("Prepare H1 Residuals for DCC-GARCH", log_stream,
+                                   prepare_residuals_for_dcc_garch,
+                                   ensemble_results,     # Kirim dict model
+                                   mtf_log_returns)  # Kirim data return
+
+        if h1_residuals_df is not None and not h1_residuals_df.empty:
+            # Then, fit the DCC-GARCH model with the prepared residuals
+            fitted_dcc_garch_models_h1 = safe_run("Fit DCC-GARCH for H1", log_stream,
+                                                  fit_dcc_garch_models,
+                                                  h1_residuals_df)
+            if fitted_dcc_garch_models_h1: # Menyimpan objek model DCC-GARCH untuk H1
+                fitted_dcc_garch_models['H1'] = fitted_dcc_garch_models_h1
+        else:
+            log_stream.write("[WARN] H1 residuals not available or empty for DCC-GARCH fitting.\n")
     else:
         log_stream.write("[WARN] H1 VARX models or log returns not available for DCC-GARCH fitting.\n")
 
@@ -801,7 +863,7 @@ def main():
         fitted_models_path = os.path.join(output_dir, 'fitted_ensemble.pkl')
 
         with open(fitted_models_path, 'wb') as f:
-            pickle.dump(package_to_save, f)
+            pickle.dump(package_to_save, f);
         log_stream.write(f"[OK] Multi-Timeframe Ensemble saved to {fitted_models_path}\n")
     except Exception as e:
         log_stream.write(f"[ERROR] Save to PKL failed: {e}\n")
@@ -826,7 +888,7 @@ def main():
                 log_stream,
                 mtf_log_returns.get(tf_forecast),
                 ensemble_results.get(tf_forecast),
-                fitted_dcc_garch_models.get(tf_forecast),
+                fitted_dcc_garch_models.get(tf_forecast), # Pass relevant DCC-GARCH for this TF
                 mtf_exog_maps.get(tf_forecast),
                 cleaned_fred_combined_df, # FRED data is D1 only, pass for D1 forecast
                 mtf_base_dfs.get(tf_forecast) # Base data for restoration

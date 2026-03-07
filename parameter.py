@@ -17,7 +17,7 @@ PAIRS = {
     'NZDUSD': 'NZDUSD',
     'XAUUSD': 'XAUUSD',   # Gold
     'XAGUSD': 'XAGUSD',   # Silver
-    'USOIL': 'USOIL',     # Crude Oil
+    #'USOIL': 'USOIL',     # Crude Oil
     'US500': 'US500',
     'DXY': 'DXY',
 }
@@ -33,29 +33,29 @@ base_interval = '1d'
 # Anda bisa mendapatkannya dari https://fred.stlouisfed.org/docs/api/api_key.html
 FRED_API_KEY = os.getenv('FRED_API_KEY', '987d18495a386165f0be970f8a733562')
 FRED_SERIES = {
-    'BAMLEMRECRPIEMEASYTW': 'CPALTT01USM657N',
-    'BAMLH0A0HYM2SYTW': 'PCEPILFE',
-    'RRPONTSYD': 'UNRATE',
+    #'BAMLEMRECRPIEMEASYTW': 'CPALTT01USM657N',
+    #'BAMLH0A0HYM2SYTW': 'PCEPILFE',
+    #'RRPONTSYD': 'UNRATE',
     #'GDP': 'GDP', # Changed from 'DGS10': 'GDP' for clarity and consistency
     'EFFRVOL': 'EFFRVOL',
-    #'T5YIE': 'T5YIE',
+    'T5YIE': 'T5YIE',
     #'DFF': 'DFF',
     #'DGS10': 'DGS10', # Added DGS10 explicitly as a FRED series if needed
 }
 
 FRED_TRANSFORM_POLICY = {
-    'BAMLH0A0HYM2SYTW': 'log_return',
-    'BAMLEMRECRPIEMEASYTW': 'log_return',
+    #'BAMLH0A0HYM2SYTW': 'log_return',
+    #'BAMLEMRECRPIEMEASYTW': 'log_return',
     'EFFRVOL': 'log_diff',
-    'RRPONTSYD': 'log_diff',
+    #'RRPONTSYD': 'log_diff',
     #'GDP': 'level_and_diff', # Changed from 'DGS10': 'level_and_diff'
-    #'T5YIE': 'level_and_diff',
+    'T5YIE': 'level_and_diff',
     #'DFF': 'level_and_diff',
     #'DGS10': 'level_and_diff', # Added policy for DGS10
 }
 
 # Local CSV
-USE_LOCAL_CSV_FOR_PAIRS = True
+USE_LOCAL_CSV_FOR_PAIRS = False
 LOCAL_CSV_FILEPATH = os.path.join(ROOT_DIR, 'data_base', 'combined_data_final_complete.csv')
 
 # Multi-timeframe
@@ -67,8 +67,8 @@ MTF_INTERVALS = {
 
 LOOKBACK_DAYS = {
     'D1': 600,
-    'H1': 1007,
-    'M1': 2002,
+    'H1': 600,
+    'M1': 600,
     'M5': 7,
     'M15': 7,
 }
