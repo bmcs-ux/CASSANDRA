@@ -14,6 +14,12 @@ class ParameterCompatibilityTests(unittest.TestCase):
         self.assertIn("US500", parameter.PAIRS)
         self.assertNotIn("SP500", parameter.PAIRS)
 
+    def test_imputation_special_assets_contains_btc_cross(self):
+        names = {item["func_pair_name"] for item in parameter.IMPUTATION_SPECIAL_ASSETS}
+        self.assertIn("BTC/USD", names)
+        self.assertIn("BTC/XAU", names)
+        self.assertIn("BTC/XAG", names)
+
 
 if __name__ == '__main__':
     unittest.main()

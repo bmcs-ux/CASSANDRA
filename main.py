@@ -218,7 +218,13 @@ def preprocess_data_tf(log_stream, b_dfs, fred_df, fred_meta, tf_label):
         else:
             # 2. Penanganan Missing Data (Pembersihan Akhir)
             # PASTIKAN log_stream dimasukkan di sini
-            cleaned_fred_df = safe_run(f"Clean FRED {tf_label}", log_stream, handle_missing_fred_data, fred_transform, missing_threshold=30)
+            cleaned_fred_df = safe_run(
+                f"Clean FRED {tf_label}",
+                log_stream,
+                handle_missing_fred_data,
+                fred_transform,
+                missing_threshold=parameter.FRED_MISSING_THRESHOLD,
+            )
 
     return log_returns_dict, cleaned_fred_df, combined_df
 
