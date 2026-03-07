@@ -23,6 +23,22 @@ PAIRS = {
 }
 ALL_SYMBOLS = list(PAIRS.values())
 
+# Instrumen tambahan khusus untuk workflow imputasi loop berantai.
+# Disimpan dalam format func_pair_name/url_segment agar kompatibel dengan downloader berbasis Exness.
+IMPUTATION_SPECIAL_ASSETS = [
+    {"func_pair_name": "XAU/GBP", "url_segment": "XAUGBP"},
+    {"func_pair_name": "XAU/AUD", "url_segment": "XAUAUD"},
+    {"func_pair_name": "GBP/USD", "url_segment": "GBPUSD"},
+    {"func_pair_name": "XNI/USD", "url_segment": "XNIUSD"},
+    {"func_pair_name": "XAG/AUD", "url_segment": "XAGAUD"},
+    {"func_pair_name": "XAU/EUR", "url_segment": "XAUEUR"},
+    {"func_pair_name": "XAG/EUR", "url_segment": "XAGEUR"},
+    {"func_pair_name": "BTC/USD", "url_segment": "BTCUSD"},
+    {"func_pair_name": "BTC/XAU", "url_segment": "BTCXAU"},
+    {"func_pair_name": "BTC/XAG", "url_segment": "BTCXAG"},
+    {"func_pair_name": "EUR/AUD", "url_segment": "EURAUD"},
+]
+
 # Legacy-style defaults used by several modules
 lookback_days = 2200
 base_interval = '1d'
