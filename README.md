@@ -25,7 +25,7 @@ Modifikasi utama pada pipeline standar adalah pengintegrasian sistem Multi-Timef
 *   **Log-Return Restoration:** Model bekerja di ruang log-return untuk stabilitas statistik. Fungsi `restore_log_returns_to_price` diimplementasikan untuk mengembalikan prediksi ke skala harga asli (OHLC) sebelum dikirim ke platform perdagangan.
 *   **Struktur Folder Relevan:**
     *   `raw`: direktori modul untuk memproses sumber data *using download, api or local csv*
-    *   `preprocesing`: Modul untuk log-return, stasionaritas, dan transformasi FRED.
+    *   `preprocessing`: Modul untuk log-return, stasionaritas, dan transformasi FRED.
     *   `vps_sync`: Folder sinkronisasi untuk *pickle* model dan *status JSON*.
     *   `data_base`: Penyimpanan lokal CSV untuk *backtesting*.
     *   `fitted_models`: Folder modul untuk uji kausalitas dan konfigurasi fitting models
