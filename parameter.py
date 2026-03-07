@@ -93,6 +93,13 @@ LOOKBACK_DAYS = {
 fred_lookback_days = 10 * 365
 FRED_MISSING_THRESHOLD = 0.3
 
+# Interactive review sebelum PREPROCESSING MTF.
+# False sebagai default agar eksekusi CI/non-interaktif tidak terblokir input().
+ENABLE_INTERACTIVE_PREPROCESS_REVIEW = False
+
+# Placeholder konfigurasi untuk metode imputasi FRED yang diusulkan.
+FRED_HYBRID_ALPHA = 0.5
+
 # --- Model Parameters ---
 maxlag_granger = 5
 alpha_granger = 0.05
