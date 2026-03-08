@@ -1,5 +1,6 @@
 import unittest
 from io import StringIO
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -52,6 +53,26 @@ class PreprocessReviewHelpersTests(unittest.TestCase):
 
         self.assertEqual(set(reviewed_mtf.keys()), {"D1"})
         self.assertEqual(reviewed_fred.shape, fred_df.shape)
+
+    def test_input_menu_uses_first_character(self):
+        with patch("builtins.input", return_value="kextra"):
+            choice = main._input_menu("prompt", {"k", "b"}, "b")
+        self.assertEqual(choice, "k")
+
+    def test_fred_menu_back_cancels_imputation(self):
+        idx = pd.date_range("2024-01-01", periods=3, freq="D")
+        fred_df = pd.DataFrame({"BTC/USD_Close": [1.0, None, 3.0]}, index=idx)
+        mtf = {"D1": {"XAUUSD": pd.DataFrame({"Open": [1, 2, 3], "Close": [1, 2, 3]}, index=idx)}}
+
+        def fake_imputation(log_stream, df):
+            return df.fillna(99.0), {"dummy": 1}
+
+        with patch("main.apply_loop_berantai_imputation", side_effect=fake_imputation), patch(
+            "builtins.input", side_effect=["i", "1", "b", "k"]
+        ):
+            reviewed = main.review_and_confirm_fred_data(StringIO(), fred_df, mtf, interactive=True)
+
+        pd.testing.assert_frame_equal(reviewed, fred_df)
 
 
 if __name__ == "__main__":

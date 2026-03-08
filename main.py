@@ -248,20 +248,42 @@ def _plot_missing_overview(df, title):
         print(f"[INFO] Plot dilewati: {title} tidak punya missing value.")
         return
 
-    plt.figure(figsize=(12, 5))
-    missing_counts.plot(kind='bar', color='orange')
-    plt.title(f"Missing Value Overview - {title}")
-    plt.ylabel("Jumlah Null")
-    plt.tight_layout()
-    plt.show()
-    plt.close()
+    fig, ax = plt.subplots(figsize=(12, 5))
+    sns.barplot(x=missing_counts.index, y=missing_counts.values, ax=ax, color='orange')
+    ax.set_title(f"Missing Value Overview - {title}")
+    ax.set_ylabel("Jumlah Null")
+    ax.set_xlabel("Kolom")
+    ax.tick_params(axis='x', rotation=75)
+    fig.tight_layout()
+    plt.show(block=False)
+    plt.close(fig)
+    print(f"[INFO] Plot missing untuk '{title}' berhasil ditampilkan.")
+
+
+def _print_dataframe_summary(summary):
+    print(f"\n[SUMMARY] {summary['label']}")
+    print(f"  shape={summary['shape']}")
+    print(f"  total_missing={summary['total_missing']}")
+    print(f"  index_range=({summary['index_start']}, {summary['index_end']})")
+    if summary['missing_per_column']:
+        for col, miss_count in list(summary['missing_per_column'].items())[:10]:
+            print(f"    - {col}: {int(miss_count)}")
+
+
+def _clear_console_output():
+    print("\n" + "=" * 80)
+    print("[INFO] Opsi dijalankan. Menu diperbarui.")
+    print("=" * 80)
 
 
 def _input_menu(prompt, valid_choices, default_choice):
     try:
-        choice = input(prompt).strip().lower()
+        raw_choice = input(prompt)
+        choice = (raw_choice or "").strip().lower()
     except EOFError:
         return default_choice
+    if len(choice) > 1:
+        choice = choice[0]
     return choice if choice in valid_choices else default_choice
 
 
@@ -272,9 +294,14 @@ def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=F
     Opsi: plotting, imputasi loop berantai, compare dengan FRED, back (ulang menu), konfirmasi lanjut.
     """
     log_stream.write("\n[INFO] Review mtf_base_dfs sebelum PREPROCESSING MTF\n")
+    initial_mtf_snapshot = {tf: {p: df.copy() for p, df in pairs_dict.items()} for tf, pairs_dict in mtf_base_dfs.items()}
+    pending_imputation = False
+
     for tf, pairs_dict in mtf_base_dfs.items():
         tf_combined = _combine_mtf_pair_ohlc(pairs_dict)
-        _log_dataframe_summary(log_stream, summarize_dataframe(tf_combined, f"mtf_base_dfs[{tf}]"))
+        summary = summarize_dataframe(tf_combined, f"mtf_base_dfs[{tf}] (sebelum menu)")
+        _log_dataframe_summary(log_stream, summary)
+        _print_dataframe_summary(summary)
 
     if not interactive:
         log_stream.write("[INFO] Interactive review MTF dinonaktifkan. Lanjut otomatis.\n")
@@ -289,6 +316,7 @@ def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=F
         if choice == 'p':
             for tf, pairs_dict in mtf_base_dfs.items():
                 _plot_missing_overview(_combine_mtf_pair_ohlc(pairs_dict), f"MTF {tf}")
+            _clear_console_output()
             continue
 
         if choice == 'i':
@@ -298,31 +326,65 @@ def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=F
                     continue
                 try:
                     imputed, stats = apply_loop_berantai_imputation(log_stream, combined)
+                    before_missing = int(combined.isna().sum().sum())
+                    after_missing = int(imputed.isna().sum().sum())
                     log_stream.write(f"[INFO] Imputasi loop berantai diterapkan untuk {tf}. stats={stats}\n")
+                    log_stream.write(
+                        f"[INFO] Ringkasan imputasi {tf}: missing_before={before_missing}, "
+                        f"missing_after={after_missing}, reduced={before_missing - after_missing}\n"
+                    )
+                    print(
+                        f"[IMPUTASI] {tf}: missing_before={before_missing}, "
+                        f"missing_after={after_missing}, reduced={before_missing - after_missing}"
+                    )
                     mtf_base_dfs[tf] = _split_mtf_pair_ohlc(imputed, pairs_dict)
+                    pending_imputation = True
                 except ValueError as err:
                     log_stream.write(f"[WARN] Imputasi loop berantai {tf} dilewati: {err}\n")
+                    print(f"[WARN] Imputasi loop berantai {tf} dilewati: {err}")
+            _clear_console_output()
             continue
 
         if choice == 'c':
             fred_summary = summarize_dataframe(fred_df, 'fred_df')
             _log_dataframe_summary(log_stream, fred_summary)
+            _print_dataframe_summary(fred_summary)
             for tf, pairs_dict in mtf_base_dfs.items():
                 tf_summary = summarize_dataframe(_combine_mtf_pair_ohlc(pairs_dict), f"mtf_base_dfs[{tf}]")
+                _log_dataframe_summary(log_stream, tf_summary)
+                _print_dataframe_summary(tf_summary)
                 log_stream.write(
                     f"[COMPARE] {tf}: total_missing={tf_summary['total_missing']} | "
                     f"fred_missing={fred_summary['total_missing']}\n"
                 )
+                print(
+                    f"[COMPARE] {tf}: total_missing={tf_summary['total_missing']} | "
+                    f"fred_missing={fred_summary['total_missing']}"
+                )
+            _clear_console_output()
             continue
 
         if choice == 'b':
-            log_stream.write("[INFO] Back dipilih: menampilkan ulang ringkasan MTF.\n")
+            mtf_base_dfs = {tf: {p: df.copy() for p, df in pairs.items()} for tf, pairs in initial_mtf_snapshot.items()}
+            pending_imputation = False
+            log_stream.write("[INFO] Back dipilih: hasil imputasi dibatalkan, data kembali ke snapshot awal.\n")
+            print("[INFO] Back: hasil imputasi dibatalkan.")
             for tf, pairs_dict in mtf_base_dfs.items():
-                _log_dataframe_summary(log_stream, summarize_dataframe(_combine_mtf_pair_ohlc(pairs_dict), f"mtf_base_dfs[{tf}]"))
+                summary = summarize_dataframe(_combine_mtf_pair_ohlc(pairs_dict), f"mtf_base_dfs[{tf}] (setelah back)")
+                _log_dataframe_summary(log_stream, summary)
+                _print_dataframe_summary(summary)
+            _clear_console_output()
             continue
 
         if choice == 'k':
+            if pending_imputation:
+                log_stream.write("[INFO] Konfirmasi imputasi diterima untuk MTF.\n")
+                print("[INFO] Konfirmasi: hasil imputasi MTF dipakai.")
             log_stream.write("[INFO] Konfirmasi diterima. Lanjut ke tahap berikutnya (PREPROCESSING MTF).\n")
+            for tf, pairs_dict in mtf_base_dfs.items():
+                summary = summarize_dataframe(_combine_mtf_pair_ohlc(pairs_dict), f"mtf_base_dfs[{tf}] (setelah menu)")
+                _log_dataframe_summary(log_stream, summary)
+                _print_dataframe_summary(summary)
             return mtf_base_dfs
 
 
@@ -332,7 +394,11 @@ def review_and_confirm_fred_data(log_stream, fred_df, mtf_base_dfs, interactive=
 
     Opsi: plotting, imputasi FRED, compare ke MTF, back, konfirmasi.
     """
-    _log_dataframe_summary(log_stream, summarize_dataframe(fred_df, "fred_df"))
+    original_fred_df = fred_df.copy() if isinstance(fred_df, pd.DataFrame) else fred_df
+    pending_imputation = False
+    initial_summary = summarize_dataframe(fred_df, "fred_df (sebelum menu)")
+    _log_dataframe_summary(log_stream, initial_summary)
+    _print_dataframe_summary(initial_summary)
 
     if not interactive:
         log_stream.write("[INFO] Interactive review FRED dinonaktifkan. Lanjut otomatis.\n")
@@ -347,6 +413,7 @@ def review_and_confirm_fred_data(log_stream, fred_df, mtf_base_dfs, interactive=
 
         if choice == 'p':
             _plot_missing_overview(fred_df, "FRED")
+            _clear_console_output()
             continue
 
         if choice == 'i':
@@ -360,27 +427,61 @@ def review_and_confirm_fred_data(log_stream, fred_df, mtf_base_dfs, interactive=
                 log_stream.write("[INFO] Metode 2 dipilih (placeholder): saat ini fallback ke apply_loop_berantai_imputation.\n")
 
             try:
-                fred_df, stats = apply_loop_berantai_imputation(log_stream, fred_df)
+                imputed_fred_df, stats = apply_loop_berantai_imputation(log_stream, fred_df)
+                before_missing = int(fred_df.isna().sum().sum()) if isinstance(fred_df, pd.DataFrame) else 0
+                after_missing = int(imputed_fred_df.isna().sum().sum()) if isinstance(imputed_fred_df, pd.DataFrame) else 0
+                fred_df = imputed_fred_df
+                pending_imputation = True
                 log_stream.write(f"[INFO] Imputasi sementara FRED selesai via loop berantai. stats={stats}\n")
+                log_stream.write(
+                    f"[INFO] Ringkasan imputasi FRED: missing_before={before_missing}, "
+                    f"missing_after={after_missing}, reduced={before_missing - after_missing}\n"
+                )
+                print(
+                    f"[IMPUTASI] FRED: missing_before={before_missing}, "
+                    f"missing_after={after_missing}, reduced={before_missing - after_missing}"
+                )
             except ValueError as err:
                 log_stream.write(f"[WARN] Imputasi FRED sementara dilewati: {err}\n")
+                print(f"[WARN] Imputasi FRED sementara dilewati: {err}")
+            _clear_console_output()
             continue
 
         if choice == 'c':
             fred_summary = summarize_dataframe(fred_df, 'fred_df')
+            _log_dataframe_summary(log_stream, fred_summary)
+            _print_dataframe_summary(fred_summary)
             for tf, pairs_dict in mtf_base_dfs.items():
                 tf_summary = summarize_dataframe(_combine_mtf_pair_ohlc(pairs_dict), f"mtf_base_dfs[{tf}]")
+                _log_dataframe_summary(log_stream, tf_summary)
+                _print_dataframe_summary(tf_summary)
                 log_stream.write(
                     f"[COMPARE] fred_df vs {tf}: fred_missing={fred_summary['total_missing']} | "
                     f"mtf_missing={tf_summary['total_missing']}\n"
                 )
+                print(
+                    f"[COMPARE] fred_df vs {tf}: fred_missing={fred_summary['total_missing']} | "
+                    f"mtf_missing={tf_summary['total_missing']}"
+                )
+            _clear_console_output()
             continue
 
         if choice == 'b':
-            _log_dataframe_summary(log_stream, summarize_dataframe(fred_df, "fred_df"))
+            fred_df = original_fred_df.copy() if isinstance(original_fred_df, pd.DataFrame) else original_fred_df
+            pending_imputation = False
+            summary = summarize_dataframe(fred_df, "fred_df (setelah back)")
+            _log_dataframe_summary(log_stream, summary)
+            _print_dataframe_summary(summary)
+            _clear_console_output()
             continue
 
         if choice == 'k':
+            if pending_imputation:
+                log_stream.write("[INFO] Konfirmasi imputasi diterima untuk FRED.\n")
+                print("[INFO] Konfirmasi: hasil imputasi FRED dipakai.")
+            final_summary = summarize_dataframe(fred_df, "fred_df (setelah menu)")
+            _log_dataframe_summary(log_stream, final_summary)
+            _print_dataframe_summary(final_summary)
             log_stream.write("[INFO] Konfirmasi FRED diterima. Lanjut ke tahap berikutnya (PREPROCESSING MTF).\n")
             return fred_df
 # ============================================================
