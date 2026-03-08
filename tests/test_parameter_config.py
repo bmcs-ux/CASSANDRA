@@ -20,6 +20,11 @@ class ParameterCompatibilityTests(unittest.TestCase):
         self.assertIn("BTC/XAU", names)
         self.assertIn("BTC/XAG", names)
 
+    def test_pickle_cache_defaults_exist(self):
+        self.assertTrue(parameter.PKL_CACHE_DIR)
+        self.assertTrue(parameter.MTF_BASE_DFS_PKL_NAME.endswith('.pkl'))
+        self.assertTrue(parameter.FRED_DF_PKL_NAME.endswith('.pkl'))
+
 
 if __name__ == '__main__':
     unittest.main()

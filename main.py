@@ -25,7 +25,7 @@ from fitted_models.dcc_garch import DCCGARCH # Tambahkan impor DCCGARCH di sini
 
 # 1. Data Acquisition (Pair & Macro)
 # Menggunakan fungsi MTF yang sudah kita sesuaikan
-from raw.pair_raw import load_base_data_mtf
+from raw.pair_raw import load_base_data_mtf, download_imputation_special_assets
 from raw.makro_raw import download_macro_data # Pastikan nama fungsi sesuai dengan makro_raw.py Anda
 
 # 2. Preprocessing
@@ -287,11 +287,40 @@ def _input_menu(prompt, valid_choices, default_choice):
     return choice if choice in valid_choices else default_choice
 
 
-def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=False):
+def _ensure_pkl_dir(cache_dir):
+    os.makedirs(cache_dir, exist_ok=True)
+
+
+def _save_pickle(log_stream, obj, path, label):
+    try:
+        _ensure_pkl_dir(os.path.dirname(path))
+        with open(path, 'wb') as f:
+            pickle.dump(obj, f)
+        log_stream.write(f"[OK] {label} disimpan ke {path}\n")
+        print(f"[INFO] {label} disimpan: {path}")
+    except Exception as err:
+        log_stream.write(f"[WARN] Gagal menyimpan {label} ke {path}: {err}\n")
+        print(f"[WARN] Gagal simpan {label}: {err}")
+
+
+def _load_pickle_if_exists(log_stream, path, label):
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'rb') as f:
+            loaded = pickle.load(f)
+        log_stream.write(f"[OK] {label} dimuat dari cache {path}\n")
+        return loaded
+    except Exception as err:
+        log_stream.write(f"[WARN] Cache {label} di {path} tidak dapat dibaca: {err}\n")
+        return None
+
+
+def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=False, imputation_assets_by_tf=None):
     """
     Review data MTF sebelum PREPROCESSING MTF.
 
-    Opsi: plotting, imputasi loop berantai, compare dengan FRED, back (ulang menu), konfirmasi lanjut.
+    Opsi: plotting, imputasi loop berantai, compare dengan FRED, save PKL, back (ulang menu), konfirmasi lanjut.
     """
     log_stream.write("\n[INFO] Review mtf_base_dfs sebelum PREPROCESSING MTF\n")
     initial_mtf_snapshot = {tf: {p: df.copy() for p, df in pairs_dict.items()} for tf, pairs_dict in mtf_base_dfs.items()}
@@ -309,8 +338,8 @@ def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=F
 
     while True:
         choice = _input_menu(
-            "\n[MTF MENU] Pilih: [p]lot, [i]mputasi_loop_berantai, [c]ompare_fred, [b]ack, [k]onfirmasi : ",
-            {'p', 'i', 'c', 'b', 'k'},
+            "\n[MTF MENU] Pilih: [p]lot, [i]mputasi_loop_berantai, [c]ompare_fred, [s]ave_pkl, [b]ack, [k]onfirmasi : ",
+            {'p', 'i', 'c', 's', 'b', 'k'},
             'k',
         )
         if choice == 'p':
@@ -322,6 +351,12 @@ def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=F
         if choice == 'i':
             for tf, pairs_dict in mtf_base_dfs.items():
                 combined = _combine_mtf_pair_ohlc(pairs_dict)
+                special_pairs = (imputation_assets_by_tf or {}).get(tf, {})
+                if special_pairs:
+                    special_combined = _combine_mtf_pair_ohlc(special_pairs)
+                    if not special_combined.empty:
+                        combined = pd.concat([combined, special_combined], axis=1)
+
                 if combined.empty:
                     continue
                 try:
@@ -376,6 +411,13 @@ def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=F
             _clear_console_output()
             continue
 
+        if choice == 's':
+            cache_dir = getattr(parameter, 'PKL_CACHE_DIR', '/content/.pkl')
+            mtf_pkl_path = os.path.join(cache_dir, getattr(parameter, 'MTF_BASE_DFS_PKL_NAME', 'mtf_base_dfs.pkl'))
+            _save_pickle(log_stream, mtf_base_dfs, mtf_pkl_path, 'mtf_base_dfs')
+            _clear_console_output()
+            continue
+
         if choice == 'k':
             if pending_imputation:
                 log_stream.write("[INFO] Konfirmasi imputasi diterima untuk MTF.\n")
@@ -392,7 +434,7 @@ def review_and_confirm_fred_data(log_stream, fred_df, mtf_base_dfs, interactive=
     """
     Review data FRED sebelum dipakai di PREPROCESSING MTF.
 
-    Opsi: plotting, imputasi FRED, compare ke MTF, back, konfirmasi.
+    Opsi: plotting, imputasi FRED, compare ke MTF, save PKL, back, konfirmasi.
     """
     original_fred_df = fred_df.copy() if isinstance(fred_df, pd.DataFrame) else fred_df
     pending_imputation = False
@@ -406,8 +448,8 @@ def review_and_confirm_fred_data(log_stream, fred_df, mtf_base_dfs, interactive=
 
     while True:
         choice = _input_menu(
-            "\n[FRED MENU] Pilih: [p]lot, [i]mputasi, [c]ompare_mtf, [b]ack, [k]onfirmasi : ",
-            {'p', 'i', 'c', 'b', 'k'},
+            "\n[FRED MENU] Pilih: [p]lot, [i]mputasi, [c]ompare_mtf, [s]ave_pkl, [b]ack, [k]onfirmasi : ",
+            {'p', 'i', 'c', 's', 'b', 'k'},
             'k',
         )
 
@@ -472,6 +514,13 @@ def review_and_confirm_fred_data(log_stream, fred_df, mtf_base_dfs, interactive=
             summary = summarize_dataframe(fred_df, "fred_df (setelah back)")
             _log_dataframe_summary(log_stream, summary)
             _print_dataframe_summary(summary)
+            _clear_console_output()
+            continue
+
+        if choice == 's':
+            cache_dir = getattr(parameter, 'PKL_CACHE_DIR', '/content/.pkl')
+            fred_pkl_path = os.path.join(cache_dir, getattr(parameter, 'FRED_DF_PKL_NAME', 'fred_df.pkl'))
+            _save_pickle(log_stream, fred_df, fred_pkl_path, 'fred_df')
             _clear_console_output()
             continue
 
@@ -981,16 +1030,36 @@ def main():
 
 
     # === 2. LOAD DATA BASE MTF ===
-    mtf_base_dfs = {}
-    for tf in parameter.MTF_INTERVALS.keys(): # Iterate over keys D1, H1, M1
-        interval_str = parameter.MTF_INTERVALS[tf] # Get the yfinance compatible string
-        lookback_days_for_tf = parameter.LOOKBACK_DAYS[tf] # Get the lookback days for this TF
-        log_stream.write(f"[DEBUG] Loading data for TF: {tf}, interval_str: {interval_str}, lookback_days: {lookback_days_for_tf}\n") # ADDED DEBUG PRINT
-        # Corrected call: removed duplicate log_stream argument
-        mtf_base_dfs[tf] = safe_run(f"Load Data {tf}", log_stream, load_base_data_mtf,
-                                     parameter.PAIRS, lookback_days_for_tf, interval_str,
-                                     parameter.USE_LOCAL_CSV_FOR_PAIRS,
-                                     parameter.LOCAL_CSV_FILEPATH)
+    cache_dir = getattr(parameter, 'PKL_CACHE_DIR', '/content/.pkl')
+    mtf_pkl_path = os.path.join(cache_dir, getattr(parameter, 'MTF_BASE_DFS_PKL_NAME', 'mtf_base_dfs.pkl'))
+    mtf_base_dfs = _load_pickle_if_exists(log_stream, mtf_pkl_path, 'mtf_base_dfs')
+
+    if not isinstance(mtf_base_dfs, dict) or not mtf_base_dfs:
+        mtf_base_dfs = {}
+        for tf in parameter.MTF_INTERVALS.keys(): # Iterate over keys D1, H1, M1
+            interval_str = parameter.MTF_INTERVALS[tf] # Get the yfinance compatible string
+            lookback_days_for_tf = parameter.LOOKBACK_DAYS[tf] # Get the lookback days for this TF
+            log_stream.write(f"[DEBUG] Loading data for TF: {tf}, interval_str: {interval_str}, lookback_days: {lookback_days_for_tf}\n")
+            mtf_base_dfs[tf] = safe_run(f"Load Data {tf}", log_stream, load_base_data_mtf,
+                                         parameter.PAIRS, lookback_days_for_tf, interval_str,
+                                         parameter.USE_LOCAL_CSV_FOR_PAIRS,
+                                         parameter.LOCAL_CSV_FILEPATH)
+
+    mtf_imputation_assets = {}
+    for tf in parameter.MTF_INTERVALS.keys():
+        interval_str = parameter.MTF_INTERVALS[tf]
+        lookback_days_for_tf = parameter.LOOKBACK_DAYS[tf]
+        tf_pairs = mtf_base_dfs.get(tf, {}) if isinstance(mtf_base_dfs, dict) else {}
+        special_assets = safe_run(
+            f"Load Imputation Assets {tf}",
+            log_stream,
+            download_imputation_special_assets,
+            parameter.IMPUTATION_SPECIAL_ASSETS,
+            lookback_days_for_tf,
+            interval_str,
+            tf_pairs,
+        )
+        mtf_imputation_assets[tf] = special_assets or {}
 
     # Freshness check hanya untuk monitoring, tidak menghentikan proses training
     safe_run("Cek Data Freshness", log_stream, check_data_freshness,
@@ -1008,6 +1077,7 @@ def main():
         mtf_base_dfs,
         fred_df,
         interactive=interactive_review,
+        imputation_assets_by_tf=mtf_imputation_assets,
     ) or mtf_base_dfs
     if fred_df is not None:
         reviewed_fred_df = safe_run(
