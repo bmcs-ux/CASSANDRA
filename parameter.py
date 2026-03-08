@@ -95,7 +95,7 @@ FRED_MISSING_THRESHOLD = 0.3
 
 # Interactive review sebelum PREPROCESSING MTF.
 # False sebagai default agar eksekusi CI/non-interaktif tidak terblokir input().
-ENABLE_INTERACTIVE_PREPROCESS_REVIEW = False
+ENABLE_INTERACTIVE_PREPROCESS_REVIEW = True
 
 # Placeholder konfigurasi untuk metode imputasi FRED yang diusulkan.
 FRED_HYBRID_ALPHA = 0.5
