@@ -274,3 +274,45 @@ def load_base_data_mtf(log_stream, pairs, lookback_days, base_interval, use_loca
             log_stream.write(f"[ERROR] Exness fallback gagal: tidak ada pair valid untuk {base_interval}.\n")
 
     return base_dfs
+
+
+def download_imputation_special_assets(log_stream, assets, lookback_days, base_interval, existing_pairs=None):
+    """Unduh instrumen khusus imputasi yang belum tersedia pada dict pair timeframe terkait."""
+    existing_pairs = existing_pairs or {}
+    downloaded_assets = {}
+    resample_interval = RESAMPLE_INTERVAL_MAP.get(str(base_interval).lower(), str(base_interval))
+    end_date = date.today()
+    start_date = end_date - timedelta(days=lookback_days)
+
+    existing_names = set(existing_pairs.keys())
+    for asset in assets or []:
+        func_pair_name = asset.get('func_pair_name')
+        url_segment = asset.get('url_segment')
+        if not func_pair_name or not url_segment:
+            continue
+
+        if func_pair_name in existing_names:
+            continue
+
+        url_list = _build_exness_urls(url_segment.upper(), start_date, end_date)
+        if not url_list:
+            log_stream.write(f"[WARN] URL Exness kosong untuk aset imputasi {func_pair_name}.\n")
+            continue
+
+        log_stream.write(
+            f"[DOWNLOAD] Aset imputasi {func_pair_name} [{base_interval}] dari {start_date} s/d {end_date} ({len(url_list)} URL).\n"
+        )
+        pair_df = _download_exness_pair_ohlc(log_stream, url_list, func_pair_name, resample_interval)
+        if pair_df.empty:
+            log_stream.write(f"[WARN] Data aset imputasi kosong untuk {func_pair_name} ({base_interval}).\n")
+            continue
+
+        pair_df = _apply_lookback_filter(log_stream, pair_df, lookback_days, func_pair_name)
+        pair_df = pair_df[[c for c in ['Open', 'High', 'Low', 'Close'] if c in pair_df.columns]]
+        if pair_df.empty:
+            continue
+
+        downloaded_assets[func_pair_name] = pair_df
+
+    log_stream.write(f"[INFO] Aset khusus imputasi terunduh: {len(downloaded_assets)} ({base_interval}).\n")
+    return downloaded_assets

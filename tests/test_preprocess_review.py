@@ -75,5 +75,59 @@ class PreprocessReviewHelpersTests(unittest.TestCase):
         pd.testing.assert_frame_equal(reviewed, fred_df)
 
 
+    def test_mtf_menu_save_writes_pickle(self):
+        idx = pd.date_range("2024-01-01", periods=2, freq="D")
+        mtf = {"D1": {"XAUUSD": pd.DataFrame({"Open": [1, 2], "Close": [1, 2]}, index=idx)}}
+        fred_df = pd.DataFrame({"EFFRVOL": [1.0, 2.0]}, index=idx)
+
+        with patch("main._save_pickle") as save_mock, patch("builtins.input", side_effect=["s", "k"]):
+            reviewed = main.review_and_confirm_mtf_data(StringIO(), mtf, fred_df, interactive=True)
+
+        self.assertIn("D1", reviewed)
+        save_mock.assert_called_once()
+
+    def test_mtf_imputation_uses_special_assets_only_for_imputation(self):
+        idx = pd.date_range("2024-01-01", periods=3, freq="D")
+        mtf = {"D1": {"XAUUSD": pd.DataFrame({"Open": [1, 2, 3], "Close": [1, 2, 3]}, index=idx)}}
+        fred_df = pd.DataFrame({"EFFRVOL": [1.0, 2.0, 3.0]}, index=idx)
+        special = {
+            "D1": {
+                "BTC/USD": pd.DataFrame({"Open": [10, 11, 12], "High": [10, 11, 12], "Low": [10, 11, 12], "Close": [10, 11, 12]}, index=idx),
+                "BTC/XAU": pd.DataFrame({"Open": [5, 6, 7], "High": [5, 6, 7], "Low": [5, 6, 7], "Close": [5, 6, 7]}, index=idx),
+                "BTC/XAG": pd.DataFrame({"Open": [2, 3, 4], "High": [2, 3, 4], "Low": [2, 3, 4], "Close": [2, 3, 4]}, index=idx),
+                "XAU/USD": pd.DataFrame({"Open": [1, 1, 1], "High": [1, 1, 1], "Low": [1, 1, 1], "Close": [1, 1, 1]}, index=idx),
+                "XAG/USD": pd.DataFrame({"Open": [1, 1, 1], "High": [1, 1, 1], "Low": [1, 1, 1], "Close": [1, 1, 1]}, index=idx),
+            }
+        }
+
+        def fake_imputation(log_stream, df):
+            self.assertIn("BTC/USD_Close", df.columns)
+            return df, {"ok": True}
+
+        with patch("main.apply_loop_berantai_imputation", side_effect=fake_imputation), patch(
+            "builtins.input", side_effect=["i", "k"]
+        ):
+            reviewed = main.review_and_confirm_mtf_data(
+                StringIO(),
+                mtf,
+                fred_df,
+                interactive=True,
+                imputation_assets_by_tf=special,
+            )
+
+        self.assertNotIn("BTC/USD", reviewed["D1"])
+
+    def test_fred_menu_save_writes_pickle(self):
+        idx = pd.date_range("2024-01-01", periods=2, freq="D")
+        fred_df = pd.DataFrame({"EFFRVOL": [1.0, 2.0]}, index=idx)
+        mtf = {"D1": {"XAUUSD": pd.DataFrame({"Open": [1, 2], "Close": [1, 2]}, index=idx)}}
+
+        with patch("main._save_pickle") as save_mock, patch("builtins.input", side_effect=["s", "k"]):
+            reviewed = main.review_and_confirm_fred_data(StringIO(), fred_df, mtf, interactive=True)
+
+        self.assertEqual(reviewed.shape, fred_df.shape)
+        save_mock.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

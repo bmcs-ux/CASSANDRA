@@ -39,6 +39,11 @@ IMPUTATION_SPECIAL_ASSETS = [
     {"func_pair_name": "EUR/AUD", "url_segment": "EURAUD"},
 ]
 
+# Direktori cache/save artefak pickle untuk akselerasi loading data.
+PKL_CACHE_DIR = '/content/.pkl'
+MTF_BASE_DFS_PKL_NAME = 'mtf_base_dfs.pkl'
+FRED_DF_PKL_NAME = 'fred_df.pkl'
+
 # Legacy-style defaults used by several modules
 lookback_days = 2200
 base_interval = '1d'
