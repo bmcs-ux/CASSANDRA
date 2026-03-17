@@ -54,6 +54,27 @@ class PairRawLocalCsvTests(unittest.TestCase):
             self.assertListEqual(list(result['EURUSD'].columns), ['Open', 'High', 'Low', 'Close'])
 
 
+class PairRawLookbackFilterTests(unittest.TestCase):
+    def test_apply_lookback_filter_drops_invalid_timestamp_rows(self):
+        from raw.pair_raw import _apply_lookback_filter
+
+        stream = StringIO()
+        df = pd.DataFrame(
+            {
+                'Open': [1.0, 1.1],
+                'High': [1.2, 1.3],
+                'Low': [0.9, 1.0],
+                'Close': [1.1, 1.2],
+            },
+            index=['invalid-ts', '2024-01-01T00:00:00Z'],
+        )
+
+        filtered = _apply_lookback_filter(stream, df, lookback_days=30, pair_name='EURUSD')
+
+        self.assertEqual(len(filtered), 1)
+        self.assertIn('invalid timestamps', stream.getvalue())
+
+
 class PairRawExnessFallbackTests(unittest.TestCase):
     @patch('raw.pair_raw.date')
     def test_build_exness_urls_monthly_and_daily(self, mock_date):

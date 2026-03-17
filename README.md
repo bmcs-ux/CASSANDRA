@@ -1,7 +1,7 @@
 ### Ringkasan Proyek CASSANDRA: Multi-Timeframe VARX-GARCH Ensemble
 
 **Tujuan Utama Proyek:**
-CASSANDRA adalah sistem perdagangan algoritmik berbasis statistik yang dirancang untuk menggabungkan model VARX (Vector Autoregression with Exogenous Variables), DCC-GARCH, dan Kalman Filter. Proyek ini mengadopsi arsitektur hibrida, di mana *Heavy Training* dilakukan di Google Colab, sementara anda juga bisa nenggunakan hasil models.pkl untuk *Real-time Adaptation* lakukan di VPS menggunakan Recursive Least Squares (RLS) atau algoritma adaptif lainnya.
+CASSANDRA adalah sistem perdagangan algoritmik berbasis statistik yang dirancang untuk menggabungkan model VARX (Vector Autoregression with Exogenous Variables), DCC-GARCH, dan Kalman Filter. Proyek ini mengadopsi arsitektur hibrida, di mana *Heavy Training* dilakukan di Google Colab, sementara anda juga bisa menggunakan hasil models.pkl untuk *Real-time Adaptation* lakukan di VPS menggunakan Recursive Least Squares (RLS) atau algoritma adaptif lainnya.
 
 **New update Strategi Engineering & Modifikasi Pipeline Tingkat Lanjut:**
 Modifikasi utama pada pipeline standar adalah pengintegrasian sistem Multi-Timeframe (MTF) yang komprehensif, dengan pilar-pilar berikut:
@@ -42,7 +42,7 @@ Proyek ini mengimplementasikan pipeline peramalan keuangan multi-timeframe (MTF)
 1.  **Desain Modular**: Pipeline ini distrukturkan ke dalam modul-modul yang berbeda dan dapat dimuat ulang (`parameter`, `raw`, `preprocessing`, `fitted_models`, `forecast`, `restored`), memfasilitasi pengembangan dan pemeliharaan yang mudah di Colab.
 2.  **Penanganan Data Multi-Timeframe**: Mendukung pemrosesan data secara simultan di berbagai timeframe (misalnya, D1, H1, M1) untuk analisis pasar yang komprehensif dan inferensi kausal lintas-timeframe.
 3.  **Akuisisi Data**: 
-    *   **Data Pasangan Keuangan**: Menggunakan `raw.pair_raw.load_base_data_mtf` untuk mengambil data historis OHLCV untuk pasangan yang ditentukan (misalnya, GBPUSD, XAUUSD, US500).
+    *   **Data Pasangan Keuangan**: Menggunakan `raw.pair_raw.load_base_data_mtf` untuk mengambil data historis OHLC untuk pasangan yang ditentukan (misalnya, GBPUSD, XAUUSD, US500).
     *   **Data Makroekonomi (FRED)**: Mengintegrasikan `raw.makro_raw.download_macro_data` untuk mengambil seri FRED yang relevan, penting untuk analisis fundamental dan penyertaan variabel eksogen dalam model.
 4.  **Pra-pemrosesan Ekstensif**: 
     *   `preprocessing.log_return`: Menerapkan log return ke harga untuk stasioneritas.

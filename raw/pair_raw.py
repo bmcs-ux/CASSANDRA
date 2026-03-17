@@ -36,6 +36,20 @@ def _apply_lookback_filter(log_stream, df, lookback_days, pair_name):
 
     if not isinstance(df.index, pd.DatetimeIndex):
         df.index = pd.to_datetime(df.index, errors='coerce', utc=True)
+
+    if df.index.hasnans:
+        before_drop = len(df)
+        df = df[~df.index.isna()]
+        dropped = before_drop - len(df)
+        if dropped > 0:
+            log_stream.write(
+                f"  [WARN] Data for {pair_name} contains {dropped} invalid timestamps and they were dropped.\n"
+            )
+
+    if df.empty:
+        log_stream.write(f"  [WARN] DataFrame for {pair_name} has no valid timestamps after parsing.\n")
+        return df
+
     if df.index.tz is None:
         df.index = df.index.tz_localize('UTC', nonexistent='shift_forward', ambiguous='NaT')
 
