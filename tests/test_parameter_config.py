@@ -14,6 +14,17 @@ class ParameterCompatibilityTests(unittest.TestCase):
         self.assertIn("US500", parameter.PAIRS)
         self.assertNotIn("SP500", parameter.PAIRS)
 
+    def test_imputation_special_assets_contains_btc_cross(self):
+        names = {item["func_pair_name"] for item in parameter.IMPUTATION_SPECIAL_ASSETS}
+        self.assertIn("BTC/USD", names)
+        self.assertIn("BTC/XAU", names)
+        self.assertIn("BTC/XAG", names)
+
+    def test_pickle_cache_defaults_exist(self):
+        self.assertTrue(parameter.PKL_CACHE_DIR)
+        self.assertTrue(parameter.MTF_BASE_DFS_PKL_NAME.endswith('.pkl'))
+        self.assertTrue(parameter.FRED_DF_PKL_NAME.endswith('.pkl'))
+
 
 if __name__ == '__main__':
     unittest.main()

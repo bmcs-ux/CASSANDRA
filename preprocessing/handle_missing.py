@@ -5,6 +5,8 @@
 # ============================================================
 import pandas as pd
 
+from preprocessing.loop_chained_imputation import apply_loop_berantai_imputation
+
 def handle_missing_fred_data(log_stream, transformed_fred_data, missing_threshold=0.30):
     """
     Handles missing data in transformed FRED data by forward filling or dropping series.
@@ -85,3 +87,26 @@ def handle_missing_fred_data(log_stream, transformed_fred_data, missing_threshol
 
     log_stream.write("\n[OK] Penanganan missing data selesai.\n") # Changed print
     return cleaned_transformed_fred_data
+
+
+def handle_missing_market_data(log_stream, combined_market_data):
+    """
+    Menangani missing data market menggunakan imputasi "Loop Berantai" berbasis BTC cross.
+
+    Args:
+        log_stream (StringIO): Stream untuk log proses.
+        combined_market_data (pd.DataFrame): Data gabungan OHLC lintas instrumen.
+
+    Returns:
+        pd.DataFrame: Data market setelah imputasi loop berantai.
+    """
+    if combined_market_data is None or combined_market_data.empty:
+        log_stream.write("[WARN] Data market kosong/tidak valid. Imputasi Loop Berantai dilewati.\n")
+        return pd.DataFrame() if combined_market_data is None else combined_market_data
+
+    try:
+        imputed_df, _ = apply_loop_berantai_imputation(log_stream, combined_market_data)
+        return imputed_df
+    except ValueError as err:
+        log_stream.write(f"[WARN] Imputasi Loop Berantai dilewati: {err}\n")
+        return combined_market_data

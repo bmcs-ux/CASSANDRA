@@ -23,6 +23,27 @@ PAIRS = {
 }
 ALL_SYMBOLS = list(PAIRS.values())
 
+# Instrumen tambahan khusus untuk workflow imputasi loop berantai.
+# Disimpan dalam format func_pair_name/url_segment agar kompatibel dengan downloader berbasis Exness.
+IMPUTATION_SPECIAL_ASSETS = [
+    {"func_pair_name": "XAU/GBP", "url_segment": "XAUGBP"},
+    {"func_pair_name": "XAU/AUD", "url_segment": "XAUAUD"},
+    {"func_pair_name": "GBP/USD", "url_segment": "GBPUSD"},
+    {"func_pair_name": "XNI/USD", "url_segment": "XNIUSD"},
+    {"func_pair_name": "XAG/AUD", "url_segment": "XAGAUD"},
+    {"func_pair_name": "XAU/EUR", "url_segment": "XAUEUR"},
+    {"func_pair_name": "XAG/EUR", "url_segment": "XAGEUR"},
+    {"func_pair_name": "BTC/USD", "url_segment": "BTCUSD"},
+    {"func_pair_name": "BTC/XAU", "url_segment": "BTCXAU"},
+    {"func_pair_name": "BTC/XAG", "url_segment": "BTCXAG"},
+    {"func_pair_name": "EUR/AUD", "url_segment": "EURAUD"},
+]
+
+# Direktori cache/save artefak pickle untuk akselerasi loading data.
+PKL_CACHE_DIR = '/content/.pkl'
+MTF_BASE_DFS_PKL_NAME = 'mtf_base_dfs.pkl'
+FRED_DF_PKL_NAME = 'fred_df.pkl'
+
 # Legacy-style defaults used by several modules
 lookback_days = 2200
 base_interval = '1d'
@@ -76,6 +97,13 @@ LOOKBACK_DAYS = {
 # FRED lookback
 fred_lookback_days = 10 * 365
 FRED_MISSING_THRESHOLD = 0.3
+
+# Interactive review sebelum PREPROCESSING MTF.
+# False sebagai default agar eksekusi CI/non-interaktif tidak terblokir input().
+ENABLE_INTERACTIVE_PREPROCESS_REVIEW = True
+
+# Placeholder konfigurasi untuk metode imputasi FRED yang diusulkan.
+FRED_HYBRID_ALPHA = 0.5
 
 # --- Model Parameters ---
 maxlag_granger = 5
