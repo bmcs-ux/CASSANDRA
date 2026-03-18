@@ -7,22 +7,24 @@ ROOT_DIR = '/content/drive/MyDrive/books/CASSANDRA/'
 VPS_SYNC_PATH = os.path.join(ROOT_DIR, 'vps_sync')
 
 # --- Data Acquisition & Preprocessing ---
-# Pair names disesuaikan untuk sumber data Exness/local CSV (tanpa suffix '=X').
-PAIRS = {
-    'GBPUSD': 'GBPUSD',
-    'AUDUSD': 'AUDUSD',
-    'USDCAD': 'USDCAD',
-    'USDCHF': 'USDCHF',
-    'USDJPY': 'USDJPY',
-    'NZDUSD': 'NZDUSD',
-    'XAUUSD': 'XAUUSD',   # Gold
-    'XAGUSD': 'XAGUSD',   # Silver
-    #'USOIL': 'USOIL',     # Crude Oil
-    'US500': 'US500',
-    'DXY': 'DXY',
+ASSET_REGISTRY = {
+    'GBPUSD': {'symbol': 'GBPUSD', 'asset_class': 'forex', 'source': 'exness'},
+    'AUDUSD': {'symbol': 'AUDUSD', 'asset_class': 'forex', 'source': 'exness'},
+    'USDCAD': {'symbol': 'USDCAD', 'asset_class': 'forex', 'source': 'exness'},
+    'USDCHF': {'symbol': 'USDCHF', 'asset_class': 'forex', 'source': 'exness'},
+    'USDJPY': {'symbol': 'USDJPY', 'asset_class': 'forex', 'source': 'exness'},
+    'NZDUSD': {'symbol': 'NZDUSD', 'asset_class': 'forex', 'source': 'exness'},
+    'XAUUSD': {'symbol': 'XAUUSD', 'asset_class': 'commodities', 'source': 'exness'},
+    'XAGUSD': {'symbol': 'XAGUSD', 'asset_class': 'commodities', 'source': 'exness'},
+    'US500': {'symbol': 'US500', 'asset_class': 'index', 'source': 'exness'},
+    'DXY': {'symbol': 'DX-Y.NYB', 'asset_class': 'index', 'source': 'yfinance'},
+    'EFFRVOL': {'symbol': 'EFFRVOL', 'asset_class': 'macro', 'source': 'fred'},
+    'T5YIE': {'symbol': 'T5YIE', 'asset_class': 'macro', 'source': 'fred'},
 }
-ALL_SYMBOLS = list(PAIRS.values())
 
+PAIRS = {k: v['symbol'] for k, v in ASSET_REGISTRY.items() if v['source'] != 'fred'}
+ALL_SYMBOLS = list(PAIRS.values())
+BASE_DATA_DIR = '/content/base_data'
 # Instrumen tambahan khusus untuk workflow imputasi loop berantai.
 # Disimpan dalam format func_pair_name/url_segment agar kompatibel dengan downloader berbasis Exness.
 IMPUTATION_SPECIAL_ASSETS = [
@@ -39,7 +41,7 @@ IMPUTATION_SPECIAL_ASSETS = [
     {"func_pair_name": "EUR/AUD", "url_segment": "EURAUD"},
 ]
 
-# Direktori cache/save artefak pickle untuk akselerasi loading data.
+# Direktori cache/save artefak data. Base data MTF kini dipersist ke Parquet, sedangkan cache pickle lama tetap tersedia untuk kompatibilitas.
 PKL_CACHE_DIR = '/content/.pkl'
 MTF_BASE_DFS_PKL_NAME = 'mtf_base_dfs.pkl'
 FRED_DF_PKL_NAME = 'fred_df.pkl'
@@ -53,16 +55,7 @@ base_interval = '1d'
 # Ganti 'YOUR_ACTUAL_FRED_API_KEY_HERE' dengan kunci FRED API Anda yang sebenarnya.
 # Anda bisa mendapatkannya dari https://fred.stlouisfed.org/docs/api/api_key.html
 FRED_API_KEY = os.getenv('FRED_API_KEY', '987d18495a386165f0be970f8a733562')
-FRED_SERIES = {
-    #'BAMLEMRECRPIEMEASYTW': 'CPALTT01USM657N',
-    #'BAMLH0A0HYM2SYTW': 'PCEPILFE',
-    #'RRPONTSYD': 'UNRATE',
-    #'GDP': 'GDP', # Changed from 'DGS10': 'GDP' for clarity and consistency
-    'EFFRVOL': 'EFFRVOL',
-    'T5YIE': 'T5YIE',
-    #'DFF': 'DFF',
-    #'DGS10': 'DGS10', # Added DGS10 explicitly as a FRED series if needed
-}
+FRED_SERIES = {k: v['symbol'] for k, v in ASSET_REGISTRY.items() if v['source'] == 'fred'}
 
 FRED_TRANSFORM_POLICY = {
     #'BAMLH0A0HYM2SYTW': 'log_return',
