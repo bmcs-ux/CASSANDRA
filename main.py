@@ -49,6 +49,31 @@ from restored import restore_log_returns_to_price # Tetap diimport untuk validas
 
 # 5. Pipeline Utilities
 # safe_run and check_data_freshness are defined locally, so no need to import from main_utils
+# === Debug Logging Helper ===
+class DebugLogStream(StringIO):
+    """StringIO yang meng-echo log ke stdout saat DEBUG_MODE aktif."""
+
+    def __init__(self, debug_enabled=False):
+        super().__init__()
+        self.debug_enabled = bool(debug_enabled)
+
+    def write(self, s):
+        written = super().write(s)
+        if self.debug_enabled and s:
+            print(s, end="")
+        return written
+
+
+def _is_debug_enabled():
+    return bool(getattr(parameter, 'DEBUG_MODE', False))
+
+
+def _debug_log(log_stream, message):
+    if not message.endswith("\n"):
+        message = f"{message}\n"
+    log_stream.write(message)
+
+
 # === Helper ===
 def safe_run(step_name, log_stream, func, *args, **kwargs):
     """Wrapper agar setiap tahap tetap lanjut walau error dan mencatat ke log_stream.
@@ -296,11 +321,9 @@ def _save_pickle(log_stream, obj, path, label):
         _ensure_pkl_dir(os.path.dirname(path))
         with open(path, 'wb') as f:
             pickle.dump(obj, f)
-        log_stream.write(f"[OK] {label} disimpan ke {path}\n")
-        print(f"[INFO] {label} disimpan: {path}")
+        _debug_log(log_stream, f"[OK] {label} disimpan ke {path}")
     except Exception as err:
-        log_stream.write(f"[WARN] Gagal menyimpan {label} ke {path}: {err}\n")
-        print(f"[WARN] Gagal simpan {label}: {err}")
+        _debug_log(log_stream, f"[WARN] Gagal menyimpan {label} ke {path}: {err}")
 
 
 def _load_pickle_if_exists(log_stream, path, label):
@@ -320,6 +343,7 @@ def _save_parquet(log_stream, mtf_base_dfs, base_dir, label, asset_registry):
     import polars as pl
 
     try:
+        saved_files = 0
         for tf, pair_dict in (mtf_base_dfs or {}).items():
             for pair, df in (pair_dict or {}).items():
                 if pair not in asset_registry or df is None:
@@ -334,7 +358,8 @@ def _save_parquet(log_stream, mtf_base_dfs, base_dir, label, asset_registry):
                 else:
                     pandas_df = df.copy()
                     index_name = pandas_df.index.name or '__index__'
-                    parquet_df = pl.from_pandas(pandas_df.reset_index().rename(columns={pandas_df.index.name or 'index': index_name}))
+                    export_df = pandas_df.reset_index().rename(columns={pandas_df.index.name or 'index': index_name})
+                    parquet_df = pl.DataFrame(export_df.to_dict(orient='list'))
 
                 dir_path = os.path.join(
                     base_dir,
@@ -344,18 +369,17 @@ def _save_parquet(log_stream, mtf_base_dfs, base_dir, label, asset_registry):
                 )
                 os.makedirs(dir_path, exist_ok=True)
 
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 file_name = f"data_{now.year}_{now.month:02d}.parquet"
                 parquet_df.write_parquet(os.path.join(dir_path, file_name))
+                saved_files += 1
 
-        log_stream.write(f"[OK] {label} saved as parquet\n")
-        print(f"[INFO] {label} disimpan sebagai parquet di {base_dir}")
+        _debug_log(log_stream, f"[OK] {label} saved as parquet ({saved_files} files) in {base_dir}")
     except Exception as err:
-        log_stream.write(f"[WARN] Failed saving parquet: {err}\n")
-        print(f"[WARN] Gagal simpan parquet {label}: {err}")
+        _debug_log(log_stream, f"[WARN] Failed saving parquet: {err}")
 
 
-def _load_parquet_lazy(base_dir, asset_registry):
+def _load_parquet_lazy(base_dir, asset_registry, log_stream=None):
     import glob
     import polars as pl
 
@@ -375,19 +399,31 @@ def _load_parquet_lazy(base_dir, asset_registry):
         if not files:
             continue
 
+        if log_stream is not None:
+            _debug_log(log_stream, f"[DEBUG] Menemukan {len(files)} file parquet untuk {pair} di {path}")
+
         files_by_tf = {}
         for file_path in files:
             tf = file_path.split("timeframe=")[-1].split(os.sep)[0]
             files_by_tf.setdefault(tf, []).append(file_path)
 
         for tf, tf_files in files_by_tf.items():
-            pdf = pl.scan_parquet(sorted(tf_files)).collect().to_pandas()
+            parquet_df = pl.concat(
+                [pl.read_parquet(file_path) for file_path in sorted(tf_files)],
+                how='vertical_relaxed',
+            )
+            pdf = pd.DataFrame(parquet_df.to_dict(as_series=False))
             index_col = '__index__' if '__index__' in pdf.columns else None
             if index_col is not None:
                 pdf[index_col] = pd.to_datetime(pdf[index_col], utc=True, errors='coerce')
                 pdf = pdf.set_index(index_col).sort_index()
                 pdf.index.name = None if index_col == '__index__' else index_col
+                inferred_freq = pd.infer_freq(pdf.index) if len(pdf.index) >= 3 else None
+                if inferred_freq:
+                    pdf.index.freq = inferred_freq
             result.setdefault(tf, {})[pair] = pdf
+            if log_stream is not None:
+                _debug_log(log_stream, f"[DEBUG] Parquet loaded for {pair} [{tf}] with shape {pdf.shape}")
 
     return result
 
@@ -1091,7 +1127,7 @@ def save_pipeline_outputs_to_file(filepath, execution_log, model_summary_df, com
 def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_id = f"pipeline_run_{timestamp}"
-    log_stream = StringIO()
+    log_stream = DebugLogStream(debug_enabled=_is_debug_enabled())
     log_stream.write(f"[INFO] Starting pipeline run with ID: {run_id}\n")
 
     # === 1. UNDUH DATA FRED TERLEBIH DAHULU ===
@@ -1106,25 +1142,56 @@ def main():
 
     # === 2. LOAD DATA BASE MTF ===
     base_dir = getattr(parameter, 'BASE_DATA_DIR', '/content/base_data')
-    mtf_base_dfs = _load_parquet_lazy(base_dir, parameter.ASSET_REGISTRY)
+    debug_enabled = _is_debug_enabled()
+    _debug_log(log_stream, f"[DEBUG] Menyiapkan pemuatan data. Base Dir: {base_dir}")
+    _debug_log(log_stream, f"[DEBUG] DEBUG_MODE={'ON' if debug_enabled else 'OFF'}")
+
+    mtf_base_dfs = _load_parquet_lazy(base_dir, parameter.ASSET_REGISTRY, log_stream=log_stream)
     if mtf_base_dfs:
-        log_stream.write(f"[OK] mtf_base_dfs dimuat dari parquet {base_dir}\n")
+        total_assets = sum(len(dfs) for dfs in mtf_base_dfs.values() if isinstance(dfs, dict))
+        _debug_log(
+            log_stream,
+            f"[OK] mtf_base_dfs dimuat dari parquet {base_dir}. Total TF: {len(mtf_base_dfs)}, Est. Total Assets: {total_assets}",
+        )
     else:
+        _debug_log(log_stream, f"[INFO] Parquet tidak ditemukan atau kosong di {base_dir}. Mencoba fallback ke Pickle...")
         cache_dir = getattr(parameter, 'PKL_CACHE_DIR', '/content/.pkl')
         mtf_pkl_path = os.path.join(cache_dir, getattr(parameter, 'MTF_BASE_DFS_PKL_NAME', 'mtf_base_dfs.pkl'))
         mtf_base_dfs = _load_pickle_if_exists(log_stream, mtf_pkl_path, 'mtf_base_dfs')
+        if mtf_base_dfs:
+            _debug_log(log_stream, f"[OK] mtf_base_dfs dimuat dari pickle: {mtf_pkl_path}")
 
     if not isinstance(mtf_base_dfs, dict) or not mtf_base_dfs:
+        _debug_log(log_stream, "[WARN] Data base kosong/tidak valid. Memulai pengunduhan data live (MT5/Source)...")
         mtf_base_dfs = {}
         for tf in parameter.MTF_INTERVALS.keys(): # Iterate over keys D1, H1, M1
             interval_str = parameter.MTF_INTERVALS[tf] # Interval string untuk loader sumber data saat ini
             lookback_days_for_tf = parameter.LOOKBACK_DAYS[tf] # Get the lookback days for this TF
-            log_stream.write(f"[DEBUG] Loading data for TF: {tf}, interval_str: {interval_str}, lookback_days: {lookback_days_for_tf}\n")
-            mtf_base_dfs[tf] = safe_run(f"Load Data {tf}", log_stream, load_base_data_mtf,
-                                         parameter.PAIRS, lookback_days_for_tf, interval_str,
-                                         parameter.USE_LOCAL_CSV_FOR_PAIRS,
-                                         parameter.LOCAL_CSV_FILEPATH)
-        _save_parquet(log_stream, mtf_base_dfs, base_dir, 'mtf_base_dfs', parameter.ASSET_REGISTRY)
+            _debug_log(
+                log_stream,
+                f"[DEBUG] Fetching Live Data - TF: {tf}, Interval: {interval_str}, Lookback: {lookback_days_for_tf} days",
+            )
+            downloaded_data = safe_run(
+                f"Load Data {tf}",
+                log_stream,
+                load_base_data_mtf,
+                parameter.PAIRS,
+                lookback_days_for_tf,
+                interval_str,
+                parameter.USE_LOCAL_CSV_FOR_PAIRS,
+                parameter.LOCAL_CSV_FILEPATH,
+            )
+            if downloaded_data:
+                mtf_base_dfs[tf] = downloaded_data
+                _debug_log(log_stream, f"[DEBUG] TF {tf} berhasil dimuat: {len(downloaded_data)} pairs.")
+            else:
+                _debug_log(log_stream, f"[ERROR] TF {tf} gagal dimuat atau data kosong.")
+
+        if mtf_base_dfs:
+            _debug_log(log_stream, f"[INFO] Menyimpan data live ke format Parquet di {base_dir}...")
+            _save_parquet(log_stream, mtf_base_dfs, base_dir, 'mtf_base_dfs', parameter.ASSET_REGISTRY)
+    else:
+        _debug_log(log_stream, "[DEBUG] mtf_base_dfs valid. Melewati proses live download.")
 
     mtf_imputation_assets = {}
     for tf in parameter.MTF_INTERVALS.keys():
