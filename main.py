@@ -316,11 +316,87 @@ def _load_pickle_if_exists(log_stream, path, label):
         return None
 
 
+def _save_parquet(log_stream, mtf_base_dfs, base_dir, label, asset_registry):
+    import polars as pl
+
+    try:
+        for tf, pair_dict in (mtf_base_dfs or {}).items():
+            for pair, df in (pair_dict or {}).items():
+                if pair not in asset_registry or df is None:
+                    continue
+
+                meta = asset_registry[pair]
+                asset_class = meta['asset_class']
+                symbol = meta['symbol']
+
+                if isinstance(df, pl.DataFrame):
+                    parquet_df = df.clone()
+                else:
+                    pandas_df = df.copy()
+                    index_name = pandas_df.index.name or '__index__'
+                    parquet_df = pl.from_pandas(pandas_df.reset_index().rename(columns={pandas_df.index.name or 'index': index_name}))
+
+                dir_path = os.path.join(
+                    base_dir,
+                    f"asset_class={asset_class}",
+                    f"symbol={symbol}",
+                    f"timeframe={tf}",
+                )
+                os.makedirs(dir_path, exist_ok=True)
+
+                now = datetime.utcnow()
+                file_name = f"data_{now.year}_{now.month:02d}.parquet"
+                parquet_df.write_parquet(os.path.join(dir_path, file_name))
+
+        log_stream.write(f"[OK] {label} saved as parquet\n")
+        print(f"[INFO] {label} disimpan sebagai parquet di {base_dir}")
+    except Exception as err:
+        log_stream.write(f"[WARN] Failed saving parquet: {err}\n")
+        print(f"[WARN] Gagal simpan parquet {label}: {err}")
+
+
+def _load_parquet_lazy(base_dir, asset_registry):
+    import glob
+    import polars as pl
+
+    result = {}
+
+    for pair, meta in (asset_registry or {}).items():
+        asset_class = meta['asset_class']
+        symbol = meta['symbol']
+        path = os.path.join(
+            base_dir,
+            f"asset_class={asset_class}",
+            f"symbol={symbol}",
+            "timeframe=*",
+        )
+
+        files = glob.glob(os.path.join(path, "*.parquet"))
+        if not files:
+            continue
+
+        files_by_tf = {}
+        for file_path in files:
+            tf = file_path.split("timeframe=")[-1].split(os.sep)[0]
+            files_by_tf.setdefault(tf, []).append(file_path)
+
+        for tf, tf_files in files_by_tf.items():
+            pdf = pl.scan_parquet(sorted(tf_files)).collect().to_pandas()
+            index_col = '__index__' if '__index__' in pdf.columns else None
+            if index_col is not None:
+                pdf[index_col] = pd.to_datetime(pdf[index_col], utc=True, errors='coerce')
+                pdf = pdf.set_index(index_col).sort_index()
+                pdf.index.name = None if index_col == '__index__' else index_col
+            result.setdefault(tf, {})[pair] = pdf
+
+    return result
+
+
 def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=False, imputation_assets_by_tf=None):
     """
     Review data MTF sebelum PREPROCESSING MTF.
 
-    Opsi: plotting, imputasi loop berantai, compare dengan FRED, save PKL, back (ulang menu), konfirmasi lanjut.
+    Opsi: plotting, imputasi loop berantai, compare dengan FRED, save Parquet, back (ulang menu), konfirmasi lanjut.
     """
     log_stream.write("\n[INFO] Review mtf_base_dfs sebelum PREPROCESSING MTF\n")
     initial_mtf_snapshot = {tf: {p: df.copy() for p, df in pairs_dict.items()} for tf, pairs_dict in mtf_base_dfs.items()}
@@ -338,7 +414,7 @@ def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=F
 
     while True:
         choice = _input_menu(
-            "\n[MTF MENU] Pilih: [p]lot, [i]mputasi_loop_berantai, [c]ompare_fred, [s]ave_pkl, [b]ack, [k]onfirmasi : ",
+            "\n[MTF MENU] Pilih: [p]lot, [i]mputasi_loop_berantai, [c]ompare_fred, [s]ave_parquet, [b]ack, [k]onfirmasi : ",
             {'p', 'i', 'c', 's', 'b', 'k'},
             'k',
         )
@@ -412,9 +488,8 @@ def review_and_confirm_mtf_data(log_stream, mtf_base_dfs, fred_df, interactive=F
             continue
 
         if choice == 's':
-            cache_dir = getattr(parameter, 'PKL_CACHE_DIR', '/content/.pkl')
-            mtf_pkl_path = os.path.join(cache_dir, getattr(parameter, 'MTF_BASE_DFS_PKL_NAME', 'mtf_base_dfs.pkl'))
-            _save_pickle(log_stream, mtf_base_dfs, mtf_pkl_path, 'mtf_base_dfs')
+            base_dir = getattr(parameter, 'BASE_DATA_DIR', '/content/base_data')
+            _save_parquet(log_stream, mtf_base_dfs, base_dir, 'mtf_base_dfs', parameter.ASSET_REGISTRY)
             _clear_console_output()
             continue
 
@@ -1030,20 +1105,26 @@ def main():
 
 
     # === 2. LOAD DATA BASE MTF ===
-    cache_dir = getattr(parameter, 'PKL_CACHE_DIR', '/content/.pkl')
-    mtf_pkl_path = os.path.join(cache_dir, getattr(parameter, 'MTF_BASE_DFS_PKL_NAME', 'mtf_base_dfs.pkl'))
-    mtf_base_dfs = _load_pickle_if_exists(log_stream, mtf_pkl_path, 'mtf_base_dfs')
+    base_dir = getattr(parameter, 'BASE_DATA_DIR', '/content/base_data')
+    mtf_base_dfs = _load_parquet_lazy(base_dir, parameter.ASSET_REGISTRY)
+    if mtf_base_dfs:
+        log_stream.write(f"[OK] mtf_base_dfs dimuat dari parquet {base_dir}\n")
+    else:
+        cache_dir = getattr(parameter, 'PKL_CACHE_DIR', '/content/.pkl')
+        mtf_pkl_path = os.path.join(cache_dir, getattr(parameter, 'MTF_BASE_DFS_PKL_NAME', 'mtf_base_dfs.pkl'))
+        mtf_base_dfs = _load_pickle_if_exists(log_stream, mtf_pkl_path, 'mtf_base_dfs')
 
     if not isinstance(mtf_base_dfs, dict) or not mtf_base_dfs:
         mtf_base_dfs = {}
         for tf in parameter.MTF_INTERVALS.keys(): # Iterate over keys D1, H1, M1
-            interval_str = parameter.MTF_INTERVALS[tf] # Get the yfinance compatible string
+            interval_str = parameter.MTF_INTERVALS[tf] # Interval string untuk loader sumber data saat ini
             lookback_days_for_tf = parameter.LOOKBACK_DAYS[tf] # Get the lookback days for this TF
             log_stream.write(f"[DEBUG] Loading data for TF: {tf}, interval_str: {interval_str}, lookback_days: {lookback_days_for_tf}\n")
             mtf_base_dfs[tf] = safe_run(f"Load Data {tf}", log_stream, load_base_data_mtf,
                                          parameter.PAIRS, lookback_days_for_tf, interval_str,
                                          parameter.USE_LOCAL_CSV_FOR_PAIRS,
                                          parameter.LOCAL_CSV_FILEPATH)
+        _save_parquet(log_stream, mtf_base_dfs, base_dir, 'mtf_base_dfs', parameter.ASSET_REGISTRY)
 
     mtf_imputation_assets = {}
     for tf in parameter.MTF_INTERVALS.keys():
@@ -1195,21 +1276,34 @@ def main():
         mtf_exog_maps[tf] = exog_map_tf # Store the exog_map for the current timeframe
 
         # Prepare combined exogenous pool for model fitting for this TF
-        current_tf_exog_pool = pd.DataFrame()
-        # Add FRED data if D1
-        if tf == 'D1' and isinstance(cleaned_fred_combined_df, pd.DataFrame):
-            if not cleaned_fred_combined_df.empty:
-                # Tambahkan ffill() di sini agar Uji Granger tidak kosong!
-                current_tf_exog_pool = pd.concat([current_tf_exog_pool, cleaned_fred_combined_df.ffill()], axis=1)
+        import polars as pl
 
-        # Add cross-asset log returns from other timeframes or same timeframe if appropriate
+        lazy_frames = []
+        seen_columns = set()
+
+        if tf == 'D1' and isinstance(cleaned_fred_combined_df, pd.DataFrame) and not cleaned_fred_combined_df.empty:
+            fred_frame = cleaned_fred_combined_df.ffill()
+            fred_cols = [col for col in fred_frame.columns if col not in seen_columns]
+            if fred_cols:
+                seen_columns.update(fred_cols)
+                lazy_frames.append(pl.from_pandas(fred_frame[fred_cols]).lazy())
+
         for other_tf, other_log_returns_df in mtf_exog_pool.items():
             # Example: H1 can use D1 log returns as exog, M1 can use H1 as exog
             # This logic needs to be refined based on actual cross-timeframe exog strategy
             if isinstance(other_log_returns_df, pd.DataFrame) and not other_log_returns_df.empty:
-                current_tf_exog_pool = pd.concat([current_tf_exog_pool, other_log_returns_df], axis=1)
+                usable_cols = [col for col in other_log_returns_df.columns if col not in seen_columns]
+                if usable_cols:
+                    seen_columns.update(usable_cols)
+                    lazy_frames.append(pl.from_pandas(other_log_returns_df[usable_cols]).lazy())
 
-        current_tf_exog_pool = current_tf_exog_pool.loc[:,~current_tf_exog_pool.columns.duplicated()].ffill().dropna(how='all')
+        if lazy_frames:
+            combined_lazy = pl.concat(lazy_frames, how="horizontal")
+            combined_lazy = combined_lazy.unique()
+            current_tf_exog_pool = combined_lazy.collect().to_pandas()
+            current_tf_exog_pool = current_tf_exog_pool.ffill().dropna(how='all')
+        else:
+            current_tf_exog_pool = pd.DataFrame()
 
         # Fit VARX/ARX models
         models_tf, summary_tf = fit_models(
