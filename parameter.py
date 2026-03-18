@@ -1,4 +1,3 @@
-
 import os
 from datetime import timedelta
 
@@ -24,7 +23,7 @@ ASSET_REGISTRY = {
 
 PAIRS = {k: v['symbol'] for k, v in ASSET_REGISTRY.items() if v['source'] != 'fred'}
 ALL_SYMBOLS = list(PAIRS.values())
-BASE_DATA_DIR = '/content/drive/MyDrive/books/CASSANDRA/base_data'
+BASE_DATA_DIR = '/content/drive/MyDrive/books/CASSANDRA/data_base'
 # Instrumen tambahan khusus untuk workflow imputasi loop berantai.
 # Disimpan dalam format func_pair_name/url_segment agar kompatibel dengan downloader berbasis Exness.
 IMPUTATION_SPECIAL_ASSETS = [

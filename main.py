@@ -1106,13 +1106,28 @@ def main():
 
     # === 2. LOAD DATA BASE MTF ===
     base_dir = getattr(parameter, 'BASE_DATA_DIR', '/content/base_data')
+    msg = f"[DEBUG] Menyiapkan pemuatan data. Base Dir: {base_dir}\n"
+    log_stream.write(msg); print(msg, end="")
+
+    # === 1. TRY LOAD FROM PARQUET (LAZY) ===
     mtf_base_dfs = _load_parquet_lazy(base_dir, parameter.ASSET_REGISTRY)
+
     if mtf_base_dfs:
-        log_stream.write(f"[OK] mtf_base_dfs dimuat dari parquet {base_dir}\n")
+        total_assets = sum(len(dfs) for dfs in mtf_base_dfs.values() if isinstance(dfs, dict))
+        msg = f"[OK] mtf_base_dfs dimuat dari parquet {base_dir}. Total TF: {len(mtf_base_dfs)}, Est. Total Assets: {total_assets}\n"
+        log_stream.write(msg); print(msg, end="")
     else:
+        msg = f"[INFO] Parquet tidak ditemukan atau kosong di {base_dir}. Mencoba fallback ke Pickle...\n"
+        log_stream.write(msg); print(msg, end="")
+
+        # === 2. FALLBACK TO PICKLE ===
         cache_dir = getattr(parameter, 'PKL_CACHE_DIR', '/content/.pkl')
         mtf_pkl_path = os.path.join(cache_dir, getattr(parameter, 'MTF_BASE_DFS_PKL_NAME', 'mtf_base_dfs.pkl'))
         mtf_base_dfs = _load_pickle_if_exists(log_stream, mtf_pkl_path, 'mtf_base_dfs')
+
+        if mtf_base_dfs:
+            msg = f"[OK] mtf_base_dfs dimuat dari pickle: {mtf_pkl_path}\n"
+            log_stream.write(msg); print(msg, end="")
 
     if not isinstance(mtf_base_dfs, dict) or not mtf_base_dfs:
         mtf_base_dfs = {}
