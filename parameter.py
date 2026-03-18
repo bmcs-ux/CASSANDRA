@@ -5,6 +5,7 @@ from datetime import timedelta
 # --- General ---
 ROOT_DIR = '/content/drive/MyDrive/books/CASSANDRA/'
 VPS_SYNC_PATH = os.path.join(ROOT_DIR, 'vps_sync')
+DEBUG_MODE = True
 
 # --- Data Acquisition & Preprocessing ---
 ASSET_REGISTRY = {
@@ -92,7 +93,7 @@ fred_lookback_days = 10 * 365
 FRED_MISSING_THRESHOLD = 0.3
 
 # Interactive review sebelum PREPROCESSING MTF.
-# False sebagai default agar eksekusi CI/non-interaktif tidak terblokir input().
+# True sebagai default untuk workflow notebook/interaktif; override ke False di CI/non-interaktif.
 ENABLE_INTERACTIVE_PREPROCESS_REVIEW = True
 
 # Placeholder konfigurasi untuk metode imputasi FRED yang diusulkan.

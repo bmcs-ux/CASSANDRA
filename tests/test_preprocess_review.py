@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -15,6 +16,16 @@ except ImportError:  # pragma: no cover - optional dependency for local runs
 
 
 class PreprocessReviewHelpersTests(unittest.TestCase):
+    def test_debug_log_stream_echoes_when_enabled(self):
+        stdout = StringIO()
+        stream = main.DebugLogStream(debug_enabled=True)
+
+        with redirect_stdout(stdout):
+            stream.write("[DEBUG] halo\n")
+
+        self.assertIn("[DEBUG] halo", stream.getvalue())
+        self.assertIn("[DEBUG] halo", stdout.getvalue())
+
     def test_summarize_dataframe_counts_missing(self):
         df = pd.DataFrame(
             {
