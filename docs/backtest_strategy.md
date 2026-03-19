@@ -82,7 +82,7 @@ regime = kmeans(features=[
 ## 6) Implementasi awal di repo
 Implementasi baseline tersedia di `backtest/replay.py` melalui fungsi `run_one_bar_replay_backtest`.
 
-##7) Struktur Parquet.
+## 7) Struktur Parquet.
 - Saran scema:
 ```
 {
@@ -120,7 +120,7 @@ Implementasi baseline tersedia di `backtest/replay.py` melalui fungsi `run_one_b
   t_profit,
 }
 ```
-##8) optimasi proses.
+## 8) optimasi proses.
 - gunakan polars untuk proses oprasi kompleks
 - Gunakan ProcessPoolExecutor untuk membagi beban ke seluruh core CPU
 - Runtime berbasis google colab(tanpa koneksi broker maupun MT5) perhitungan komisi dan spread berbasis simulasi.
