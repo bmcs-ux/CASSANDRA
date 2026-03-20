@@ -13,10 +13,12 @@ Pendekatan paling tepat untuk loop saat ini adalah **event replay backtest** ber
 - Mudah diuji ulang untuk banyak konfigurasi threshold/gate.
 ### Aturan baseline
 - Eksekusi sinyal pada akhir cycle `t`.
-- Tutup posisi pada cycle `t+1` Tambahkan layer evaluasi kedua (bukan mengganti baseline) untuk baseline yang deterministik.
+- Tutup posisi pada cycle `t+1`.
+- Tambahkan layer evaluasi kedua (bukan mengganti baseline) untuk baseline yang deterministik.
 - Tambahkan biaya transaksi (fee + slippage) dua sisi.
-- Buat "Gate Attribution Analysis"
-Counterfactual Replay,  Original decision (dengan semua gate), Replay ulang dengan: remove 1 gate,  keep others.
+- Buat "Gate Attribution Analysis".
+
+Counterfactual Replay: original decision (dengan semua gate), lalu replay ulang dengan remove 1 gate dan keep others.
 ```
 baseline: HOLD
 without_confidence_gate: BUY → +0.5%
@@ -83,7 +85,7 @@ regime = kmeans(features=[
 Implementasi baseline tersedia di `backtest/replay.py` melalui fungsi `run_one_bar_replay_backtest`.
 
 ## 7) Struktur Parquet.
-- Saran scema:
+- Saran skema:
 ```
 {
   timestamp,
@@ -120,8 +122,8 @@ Implementasi baseline tersedia di `backtest/replay.py` melalui fungsi `run_one_b
   t_profit,
 }
 ```
-## 8) optimasi proses.
-- gunakan polars untuk proses oprasi kompleks
+## 8) Optimasi proses.
+- gunakan polars untuk proses operasi kompleks
 - Gunakan ProcessPoolExecutor untuk membagi beban ke seluruh core CPU
 - Runtime berbasis google colab(tanpa koneksi broker maupun MT5) perhitungan komisi dan spread berbasis simulasi.
 
@@ -129,4 +131,4 @@ Fungsi ini sengaja minimal sebagai fondasi diskusi sebelum menambah:
 - simulasi multi-bar holding,
 - sizing dari `position_units`,
 - stop-loss/take-profit intrabar,
-- portfolio-level constraisats.
+- portfolio-level constraints.
