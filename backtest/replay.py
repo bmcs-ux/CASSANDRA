@@ -98,6 +98,11 @@ def _base_decision_row(
         "actually_executed": False,
         "blocked_by": [],
         "gate_pass_mask": [],
+        "rls_confidence": None, # Akan diisi dari cycle_results
+        "deviation_score": None,
+        "kalman_zscore": None,
+        "dcc_correlation": None,
+        "regime_label": None,
         "entry_price": None,
         "exit_price": None,
         "entry_price_source": None,
