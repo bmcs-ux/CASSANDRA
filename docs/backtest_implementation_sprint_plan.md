@@ -1,157 +1,196 @@
+---
+
 # Plan Implementasi Backtest dan Fase Sprint CASSANDRA
 
 Dokumen ini mencatat rencana implementasi praktis untuk mengembangkan baseline replay backtest yang sudah ada di repo menjadi fondasi evaluasi strategi yang sesuai dengan arah di `docs/backtest_strategy.md`.
 
 ## 1. Ringkasan kondisi saat ini
 
-- Baseline yang tersedia ada di `backtest/replay.py` melalui `run_one_bar_replay_backtest`.
-- Implementasi saat ini masih minimal: membaca `trade_signals`, `latest_actual_prices`, lalu menghasilkan `total_trades`, `win_rate`, `gross_pnl`, dan `avg_pnl_per_trade`.
-- Belum ada decision ledger, trade ledger, export parquet, gate attribution, grid eksperimen, atau walk-forward validation.
-- Test replay saat ini baru mencakup satu skenario BUY one-bar yang profit.
+* Baseline yang tersedia ada di `backtest/replay.py` melalui `run_one_bar_replay_backtest`.
+* Implementasi saat ini masih minimal: membaca `trade_signals`, `latest_actual_prices`, lalu menghasilkan `total_trades`, `win_rate`, `gross_pnl`, dan `avg_pnl_per_trade`.
+* Belum ada decision ledger, trade ledger, export parquet, gate attribution, grid eksperimen, atau walk-forward validation.
+* Test replay saat ini baru mencakup satu skenario BUY one-bar yang profit.
 
 ## 2. Tujuan Sprint
 
 ### Sprint 1 — Fondasi replay yang siap dipakai
+
 Fokus sprint pertama adalah membangun fondasi yang stabil dan mudah diuji.
 
 Deliverable utama:
-- replay engine berbasis ledger
-- KPI trading/risk dasar
-- export parquet minimal
-- test replay yang lebih lengkap
+
+* replay engine berbasis ledger
+* KPI trading/risk dasar
+* export parquet minimal
+* test replay yang lebih lengkap
 
 ### Sprint 2 — Dataset evaluasi dan attribution
+
 Fokus sprint kedua adalah memperkaya output replay agar bisa dipakai untuk analisis lanjutan.
 
 Deliverable utama:
-- decision ledger lengkap dengan field action/gating
-- label multi-horizon (`pnl_1`, `pnl_3`, `pnl_5`, `max_adverse`, `max_favorable`)
-- gate attribution analysis
-- ringkasan alasan HOLD dan blocked-by gate
+
+* decision ledger lengkap dengan field action/gating
+* label multi-horizon (`pnl_1`, `pnl_3`, `pnl_5`, `max_adverse`, `max_favorable`)
+* gate attribution analysis
+* ringkasan alasan HOLD dan blocked-by gate
 
 ### Sprint 3 — Eksperimen dan validasi anti-bias
+
 Fokus sprint ketiga adalah evaluasi skala besar dan ranking konfigurasi.
 
 Deliverable utama:
-- grid eksperimen threshold/gate
-- walk-forward split
-- evaluasi per regime
-- ranking berbasis return yang disesuaikan risiko
+
+* grid eksperimen threshold/gate
+* walk-forward split
+* evaluasi per regime
+* ranking berbasis return yang disesuaikan risiko
 
 ## 3. Fase implementasi rinci
 
 ### Fase A — Bekukan kontrak data replay
+
 Tujuan:
-- Menetapkan schema input dan output agar refactor replay tidak ambigu.
+
+* Menetapkan schema input dan output agar refactor replay tidak ambigu.
 
 Checklist:
-- Tetapkan struktur `cycle_results` minimum: `timestamp`, `trade_signals`, `latest_actual_prices`.
-- Definisikan schema `decision ledger`.
-- Definisikan schema `trade ledger`.
-- Dokumentasikan field yang belum wajib di Sprint 1 tetapi akan ditambahkan di Sprint 2.
+
+* Tetapkan struktur `cycle_results` minimum: `timestamp`, `trade_signals`, `latest_actual_prices`.
+* Definisikan schema `decision ledger`.
+* Definisikan schema `trade ledger`.
+* Dokumentasikan field yang belum wajib di Sprint 1 tetapi akan ditambahkan di Sprint 2.
 
 Output:
-- docstring dan komentar modul yang jelas
-- fixture data replay contoh untuk test
+
+* docstring dan komentar modul yang jelas
+* fixture data replay contoh untuk test
 
 ### Fase B — Refactor replay menjadi ledger-first
+
 Tujuan:
-- Mengubah perhitungan langsung di loop menjadi pipeline kecil yang lebih mudah diuji.
+
+* Mengubah perhitungan langsung di loop menjadi pipeline kecil yang lebih mudah diuji.
 
 Checklist:
-- Pisahkan helper untuk direction, entry price, exit price, dan perhitungan return.
-- Tambahkan builder untuk trade rows.
-- Tambahkan builder untuk decision rows.
-- Pertahankan wrapper `run_one_bar_replay_backtest` untuk kompatibilitas.
+
+* Pisahkan helper untuk direction, entry price, exit price, dan perhitungan return.
+* Tambahkan builder untuk trade rows.
+* Tambahkan builder untuk decision rows.
+* Pertahankan wrapper `run_one_bar_replay_backtest` untuk kompatibilitas.
 
 Output:
-- API replay yang menghasilkan row-level data
-- summary tetap tersedia sebagai wrapper kompatibel
+
+* API replay yang menghasilkan row-level data
+* summary tetap tersedia sebagai wrapper kompatibel
 
 ### Fase C — KPI trading dan risk dasar
+
 Tujuan:
-- Menyediakan metrik minimum yang benar-benar berguna untuk evaluasi awal.
+
+* Menyediakan metrik minimum yang benar-benar berguna untuk evaluasi awal.
 
 Checklist:
-- Hitung total trades, win rate, gross return, net return, average return per trade.
-- Tambahkan equity curve sederhana.
-- Hitung max drawdown sederhana.
-- Catat skipped trade karena data harga tidak lengkap.
+
+* Hitung total trades, win rate, gross return, net return, average return per trade.
+* Tambahkan equity curve sederhana.
+* Hitung max drawdown sederhana.
+* Catat skipped trade karena data harga tidak lengkap.
 
 Output:
-- summary KPI minimum Sprint 1
+
+* summary KPI minimum Sprint 1
 
 ### Fase D — Export parquet minimal
+
 Tujuan:
-- Menyimpan hasil replay secara row-level untuk analisis lanjutan.
+
+* Menyimpan hasil replay secara row-level untuk analisis lanjutan.
 
 Checklist:
-- Simpan decision/trade ledger ke parquet.
-- Gunakan field minimal yang stabil untuk Sprint 1.
-- Tambahkan `schema_version`, `generated_at`, dan metadata run.
+
+* Simpan decision/trade ledger ke parquet.
+* Gunakan field minimal yang stabil untuk Sprint 1.
+* Tambahkan `schema_version`, `generated_at`, dan metadata run.
 
 Output:
-- file parquet hasil replay yang siap dipakai ulang
+
+* file parquet hasil replay yang siap dipakai ulang
 
 ### Fase E — Pengujian dan validasi dasar
+
 Tujuan:
-- Menurunkan risiko regresi saat replay berkembang.
+
+* Menurunkan risiko regresi saat replay berkembang.
 
 Checklist:
-- Tambahkan test BUY profit.
-- Tambahkan test SELL profit.
-- Tambahkan test fee/slippage.
-- Tambahkan test fallback entry price.
-- Tambahkan test skip ketika harga exit tidak tersedia.
-- Tambahkan test multi-cycle dan multi-symbol.
+
+* Tambahkan test BUY profit.
+* Tambahkan test SELL profit.
+* Tambahkan test fee/slippage.
+* Tambahkan test fallback entry price.
+* Tambahkan test skip ketika harga exit tidak tersedia.
+* Tambahkan test multi-cycle dan multi-symbol.
 
 Output:
-- suite test replay yang lebih representatif
+
+* suite test replay yang lebih representatif
 
 ## 4. Checklist implementasi Sprint 1
 
 ### Backlog utama
-- [x] Definisikan schema `decision ledger` dan `trade ledger`.
-- [x] Refactor `backtest/replay.py` menjadi ledger-first.
-- [x] Tambahkan KPI: gross return, net return, avg return, win rate, max drawdown.
-- [x] Tambahkan export parquet minimal.
-- [x] Perluas `tests/test_backtest_replay.py` untuk skenario BUY/SELL/cost/missing price.
-- [x] Perbarui dokumentasi baseline replay agar scope Sprint 1 jelas.
+
+* [x] Definisikan schema `decision ledger` dan `trade ledger`.
+* [x] Refactor `backtest/replay.py` menjadi ledger-first.
+* [x] Tambahkan KPI: gross return, net return, avg return, win rate, max drawdown.
+* [x] Tambahkan export parquet minimal.
+* [x] Perluas `tests/test_backtest_replay.py` untuk skenario BUY/SELL/cost/missing price.
+* [x] Perbarui dokumentasi baseline replay agar scope Sprint 1 jelas.
 
 ### Acceptance criteria
-- [ ] API lama `run_one_bar_replay_backtest` masih bisa dipakai.
-- [ ] Replay mendukung BUY dan SELL.
-- [ ] Biaya transaksi dihitung dua sisi.
-- [ ] Ada output row-level yang bisa diexport.
-- [ ] Ada test untuk skenario utama dan edge case dasar.
+
+* [ ] API lama `run_one_bar_replay_backtest` masih bisa dipakai.
+* [ ] Replay mendukung BUY dan SELL.
+* [ ] Biaya transaksi dihitung dua sisi.
+* [ ] Ada output row-level yang bisa diexport.
+* [ ] Ada test untuk skenario utama dan edge case dasar.
 
 ## 5. Pembagian fase sprint
 
 ### Sprint 1
+
 Scope:
-- Fase A, B, C, D, dan E dalam versi minimum
+
+* Fase A, B, C, D, dan E dalam versi minimum
 
 Hasil akhir:
-- replay engine yang sudah cukup rapi untuk dipakai iterasi berikutnya
+
+* replay engine yang sudah cukup rapi untuk dipakai iterasi berikutnya
 
 ### Sprint 2
+
 Scope:
-- tambahkan field gating dan feature model
-- multi-horizon labels
-- gate attribution
+
+* tambahkan field gating dan feature model
+* multi-horizon labels
+* gate attribution
 
 Hasil akhir:
-- dataset perilaku sistem yang cocok untuk analisis filter dan training lanjutan
+
+* dataset perilaku sistem yang cocok untuk analisis filter dan training lanjutan
 
 ### Sprint 3
+
 Scope:
-- grid eksperimen
-- walk-forward validation
-- segmentasi regime
-- ranking kombinasi parameter
+
+* grid eksperimen
+* walk-forward validation
+* segmentasi regime
+* ranking kombinasi parameter
 
 Hasil akhir:
-- framework evaluasi strategi yang bisa dipakai membandingkan banyak konfigurasi secara sistematis
+
+* framework evaluasi strategi yang bisa dipakai membandingkan banyak konfigurasi secara sistematis
 
 ## 6. Urutan kerja yang direkomendasikan
 
@@ -163,16 +202,147 @@ Hasil akhir:
 
 ## 7. Backlog temuan code review
 
-Berikut empat tugas yang sudah teridentifikasi dari review codebase:
-
 ### 7.1 Perbaikan salah ketik
-- Rapikan typo di `docs/backtest_strategy.md`, termasuk kata seperti `skema`, `operasi`, dan `constraints`.
+
+* Rapikan typo di `docs/backtest_strategy.md`, termasuk kata seperti `skema`, `operasi`, dan `constraints`.
 
 ### 7.2 Perbaikan bug
-- Cegah `pytest` mengoleksi helper `test_and_stationarize_data` di `preprocessing/stationarity_test.py` sebagai test case.
+
+* Cegah `pytest` mengoleksi helper `test_and_stationarize_data` di `preprocessing/stationarity_test.py` sebagai test case.
 
 ### 7.3 Perbaikan komentar kode / ketidaksesuaian dokumentasi
-- Selaraskan ekspektasi `BASE_DATA_DIR` antara `parameter.py`, fallback di `main.py`, dan test kompatibilitas.
+
+* Selaraskan ekspektasi `BASE_DATA_DIR` antara `parameter.py`, fallback di `main.py`, dan test kompatibilitas.
 
 ### 7.4 Peningkatan pengujian
-- Tambahkan coverage replay untuk SELL, biaya transaksi, fallback harga, dan missing exit price.
+
+* Tambahkan coverage replay untuk SELL, biaya transaksi, fallback harga, dan missing exit price.
+
+---
+
+## 8. Fix Kelemahan Sprint 1 (Wajib Sebelum Masuk Sprint 2)
+
+Bagian ini menambahkan perbaikan penting dari implementasi Sprint 1 agar fondasi replay tidak menghasilkan bias atau bottleneck di fase berikutnya.
+
+### 8.1 Definisi harga eksekusi lebih realistis
+
+Masalah:
+
+* Saat ini entry/exit menggunakan harga tunggal (mid/close), berpotensi overestimate PnL.
+
+Perbaikan:
+
+* Gunakan pendekatan biaya eksplisit atau harga efektif:
+
+  * BUY: entry naik (ask), exit turun (bid)
+  * SELL: entry turun (bid), exit naik (ask)
+* Simpan:
+
+  * `entry_price_raw`
+  * `entry_price_effective`
+  * `exit_price_raw`
+  * `exit_price_effective`
+
+### 8.2 Transparansi biaya transaksi
+
+Masalah:
+
+* Biaya sudah dihitung tapi tidak disimpan sebagai komponen terpisah.
+
+Perbaikan:
+
+* Tambahkan field:
+
+  * `cost_return`
+* Pastikan:
+
+  * `net_return = gross_return - cost_return`
+
+### 8.3 Penambahan decision_id untuk traceability
+
+Masalah:
+
+* Tidak ada identitas unik untuk menghubungkan decision dan trade.
+
+Perbaikan:
+
+* Tambahkan:
+
+  * `decision_id`
+* Gunakan di:
+
+  * decision ledger
+  * trade ledger
+
+### 8.4 Standarisasi encoding gate
+
+Masalah:
+
+* `blocked_by` dan `gate_pass_mask` masih kosong / tidak konsisten.
+
+Perbaikan:
+
+* Gunakan representasi konsisten sejak awal:
+
+  * `blocked_by`: list atau bitmask
+  * `gate_pass_mask`: multi-hot vector tetap
+* Hindari perubahan schema di Sprint 2.
+
+### 8.5 Mode equity curve
+
+Masalah:
+
+* Equity curve masih additive, tidak mencerminkan compounding.
+
+Perbaikan:
+
+* Tambahkan opsi:
+
+  * additive (default Sprint 1)
+  * compounding (Sprint 2+)
+
+### 8.6 Persiapan migrasi ke Polars
+
+Masalah:
+
+* Implementasi masih menggunakan pandas.
+
+Perbaikan:
+
+* Tandai bagian yang akan di-migrate:
+
+  * parquet export
+  * transformasi dataframe
+* Pastikan API tidak terikat pandas secara keras.
+
+### 8.7 Kesiapan skalabilitas
+
+Masalah:
+
+* Loop masih sequential per symbol.
+
+Perbaikan:
+
+* Siapkan struktur untuk:
+
+  * parallel per symbol
+  * parallel per batch cycle
+* Tidak perlu diimplementasi penuh di Sprint 1, tetapi desain harus kompatibel.
+
+---
+
+## 9. Catatan Strategis
+
+Perbaikan pada bagian ini bertujuan untuk memastikan bahwa:
+
+* hasil backtest tidak bias secara sistematis
+* dataset yang dihasilkan langsung usable untuk ML
+* struktur data tidak perlu dirombak ulang di Sprint 2
+
+Tanpa perbaikan ini, risiko utama adalah:
+
+* PnL terlalu optimis
+* schema drift saat menambah fitur
+* sulit melakukan attribution dan training model
+
+---
