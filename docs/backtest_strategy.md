@@ -146,6 +146,21 @@ Skema yang disarankan:
 - Gunakan polars untuk operasi yang kompleks.
 - Gunakan `ProcessPoolExecutor` untuk membagi beban ke seluruh core CPU.
 - Runtime berbasis Google Colab (tanpa koneksi broker maupun MT5), dengan perhitungan komisi dan spread berbasis simulasi.
+Rekomendasi struktur modul
+Agar implementasinya bersih, saya sarankan pecah backtest menjadi beberapa modul:
+- backtest/schema.py
+`dataclass / typed dict untuk cycle row, decision row, trade row`
+- backtest/replay.py
+`normalisasi cycle + build ledger`
+- backtest/metrics.py
+`KPI trading/risk/decision`
+- backtest/attribution.py
+`counterfactual gate replay`
+- backtest/export.py
+`parquet writer`
+- backtest/experiments.py
+`grid runner dan walk-forward`
+Dengan begitu run_one_bar_replay_backtest bisa tetap dipakai sebagai
 
 Fungsi ini sengaja minimal sebagai fondasi diskusi sebelum menambah:
 - simulasi multi-bar holding,
