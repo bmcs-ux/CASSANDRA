@@ -33,7 +33,7 @@ ASSET_REGISTRY = {
 }
 PAIRS = {k: v['symbol'] for k, v in ASSET_REGISTRY.items() if v['source'] != 'fred'}
 ALL_SYMBOLS = list(PAIRS.values())
-BASE_DATA_DIR = '/content/drive/MyDrive/books/CASSANDRA/data_base'
+BASE_DATA_DIR = '/content/base_data'
 # Instrumen tambahan khusus untuk workflow imputasi loop berantai.
 # Disimpan dalam format func_pair_name/url_segment agar kompatibel dengan downloader berbasis Exness.
 IMPUTATION_SPECIAL_ASSETS = [
@@ -44,9 +44,9 @@ IMPUTATION_SPECIAL_ASSETS = [
     {"func_pair_name": "XAGAUD", "url_segment": "XAGAUD"},
     {"func_pair_name": "XAUEUR", "url_segment": "XAUEUR"},
     {"func_pair_name": "XAGEUR", "url_segment": "XAGEUR"},
-    {"func_pair_name": "BTCUSD", "url_segment": "BTCUSD"},
-    {"func_pair_name": "BTCXAU", "url_segment": "BTCXAU"},
-    {"func_pair_name": "BTCXAG", "url_segment": "BTCXAG"},
+    {"func_pair_name": "BTC/USD", "url_segment": "BTCUSD"},
+    {"func_pair_name": "BTC/XAU", "url_segment": "BTCXAU"},
+    {"func_pair_name": "BTC/XAG", "url_segment": "BTCXAG"},
     {"func_pair_name": "EURAUD", "url_segment": "EURAUD"},
 ]
 
