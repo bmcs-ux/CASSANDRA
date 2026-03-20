@@ -111,12 +111,12 @@ Output:
 ## 4. Checklist implementasi Sprint 1
 
 ### Backlog utama
-- [ ] Definisikan schema `decision ledger` dan `trade ledger`.
-- [ ] Refactor `backtest/replay.py` menjadi ledger-first.
-- [ ] Tambahkan KPI: gross return, net return, avg return, win rate, max drawdown.
-- [ ] Tambahkan export parquet minimal.
-- [ ] Perluas `tests/test_backtest_replay.py` untuk skenario BUY/SELL/cost/missing price.
-- [ ] Perbarui dokumentasi baseline replay agar scope Sprint 1 jelas.
+- [x] Definisikan schema `decision ledger` dan `trade ledger`.
+- [x] Refactor `backtest/replay.py` menjadi ledger-first.
+- [x] Tambahkan KPI: gross return, net return, avg return, win rate, max drawdown.
+- [x] Tambahkan export parquet minimal.
+- [x] Perluas `tests/test_backtest_replay.py` untuk skenario BUY/SELL/cost/missing price.
+- [x] Perbarui dokumentasi baseline replay agar scope Sprint 1 jelas.
 
 ### Acceptance criteria
 - [ ] API lama `run_one_bar_replay_backtest` masih bisa dipakai.

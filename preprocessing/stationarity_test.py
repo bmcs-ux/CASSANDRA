@@ -204,3 +204,7 @@ def test_and_stationarize_data(log_stream, log_return_dfs, cleaned_transformed_f
 
     log_stream.write("\n[OK] Uji stasioneritas dan differencing otomatis selesai.\n") # Changed print
     return stationarity_results, final_stationarized_fred_data
+
+
+# Hindari pytest mengoleksi helper ini sebagai test module-level.
+test_and_stationarize_data.__test__ = False
