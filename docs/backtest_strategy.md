@@ -160,7 +160,7 @@ Agar implementasinya bersih, saya sarankan pecah backtest menjadi beberapa modul
 `parquet writer`
 - backtest/experiments.py
 `grid runner dan walk-forward`
-Dengan begitu run_one_bar_replay_backtest bisa tetap dipakai sebagai
+Dengan begitu run_one_bar_replay_backtest bisa tetap dipakai sebagai compatibility wrapper sambil fondasinya diperluas.
 
 Fungsi ini sengaja minimal sebagai fondasi diskusi sebelum menambah:
 - simulasi multi-bar holding,
