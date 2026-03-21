@@ -26,6 +26,7 @@ class BacktestReplayTests(unittest.TestCase):
         self.assertAlmostEqual(summary.win_rate, 1.0)
         self.assertGreater(summary.gross_pnl, 0.0)
         self.assertEqual(summary.skipped_trades, 0)
+        self.assertEqual(summary.equity_curve_mode, "additive")
 
     def test_sell_signal_can_profit_when_price_drops(self):
         cycles = [
@@ -46,8 +47,9 @@ class BacktestReplayTests(unittest.TestCase):
         self.assertEqual(result.summary.total_trades, 1)
         self.assertAlmostEqual(result.trade_ledger[0]["gross_return"], 0.01)
         self.assertAlmostEqual(result.summary.win_rate, 1.0)
+        self.assertEqual(result.trade_ledger[0]["decision_id"], result.decision_ledger[0]["decision_id"])
 
-    def test_fee_and_slippage_are_charged_on_both_sides(self):
+    def test_fee_and_slippage_are_exposed_as_explicit_cost_return(self):
         cycles = [
             {
                 "timestamp": "2026-01-01T00:00:00Z",
@@ -63,9 +65,11 @@ class BacktestReplayTests(unittest.TestCase):
 
         result = build_replay_ledgers(cycles, fee_bps=2.0, slippage_bps=3.0)
 
-        self.assertAlmostEqual(result.trade_ledger[0]["gross_return"], 0.001)
-        self.assertAlmostEqual(result.trade_ledger[0]["net_return"], 0.0)
-        self.assertAlmostEqual(result.summary.net_pnl, 0.0)
+        trade = result.trade_ledger[0]
+        self.assertAlmostEqual(trade["gross_return"], 0.001)
+        self.assertGreater(trade["cost_return"], 0.0)
+        self.assertAlmostEqual(trade["net_return"], trade["gross_return"] - trade["cost_return"])
+        self.assertAlmostEqual(result.summary.net_pnl, trade["net_return"])
 
     def test_missing_entry_price_falls_back_to_current_actual_price(self):
         cycles = [
@@ -85,7 +89,8 @@ class BacktestReplayTests(unittest.TestCase):
 
         self.assertTrue(result.trade_ledger[0]["used_entry_fallback"])
         self.assertEqual(result.trade_ledger[0]["entry_price_source"], "latest_actual_prices")
-        self.assertAlmostEqual(result.trade_ledger[0]["entry_price"], 1.25)
+        self.assertAlmostEqual(result.trade_ledger[0]["entry_price_raw"], 1.25)
+        self.assertAlmostEqual(result.decision_ledger[0]["entry_price_raw"], 1.25)
 
     def test_missing_exit_price_is_skipped_and_recorded_in_decision_ledger(self):
         cycles = [
@@ -107,8 +112,10 @@ class BacktestReplayTests(unittest.TestCase):
         self.assertEqual(result.summary.skipped_trades, 1)
         self.assertEqual(result.decision_ledger[0]["skip_reason"], "missing_exit_price")
         self.assertFalse(result.decision_ledger[0]["actually_executed"])
+        self.assertEqual(result.decision_ledger[0]["blocked_by"], ["exit_price_available"])
+        self.assertEqual(result.decision_ledger[0]["gate_pass_mask"], [1, 1, 0, 0])
 
-    def test_multi_cycle_multi_symbol_builds_equity_curve_and_drawdown(self):
+    def test_multi_cycle_multi_symbol_builds_additive_equity_curve_and_drawdown(self):
         cycles = [
             {
                 "timestamp": "2026-01-01T00:00:00Z",
@@ -140,6 +147,60 @@ class BacktestReplayTests(unittest.TestCase):
         self.assertGreater(result.summary.max_drawdown, 0.0)
         self.assertEqual(result.decision_ledger[-1]["action"], "HOLD")
         self.assertEqual(result.decision_ledger[-1]["skip_reason"], "hold_signal")
+        self.assertEqual(result.summary.equity_curve_mode, "additive")
+
+    def test_compounding_equity_curve_mode_is_supported(self):
+        cycles = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.0},
+                "trade_signals": {"EURUSD": {"signal": "BUY", "entry_price": 1.0}},
+            },
+            {
+                "timestamp": "2026-01-02T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.1},
+                "trade_signals": {"EURUSD": {"signal": "BUY", "entry_price": 1.1}},
+            },
+            {
+                "timestamp": "2026-01-03T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.045},
+                "trade_signals": {},
+            },
+        ]
+
+        additive = build_replay_ledgers(cycles, equity_curve_mode="additive")
+        compounding = build_replay_ledgers(cycles, equity_curve_mode="compounding")
+
+        self.assertEqual(additive.summary.equity_curve_mode, "additive")
+        self.assertEqual(compounding.summary.equity_curve_mode, "compounding")
+        self.assertNotEqual(additive.summary.equity_curve, compounding.summary.equity_curve)
+        self.assertGreaterEqual(compounding.summary.equity_curve[0], 1.0)
+
+    def test_effective_execution_prices_make_buy_less_optimistic(self):
+        cycles = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.2000},
+                "trade_signals": {"EURUSD": {"signal": "BUY", "entry_price": 1.2000}},
+            },
+            {
+                "timestamp": "2026-01-02T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.2120},
+                "trade_signals": {},
+            },
+        ]
+
+        result = build_replay_ledgers(cycles, fee_bps=1.0, slippage_bps=2.0)
+        trade = result.trade_ledger[0]
+
+        self.assertGreater(trade["entry_price_effective"], trade["entry_price_raw"])
+        self.assertLess(trade["exit_price_effective"], trade["exit_price_raw"])
+        self.assertGreater(trade["cost_return"], 0.0)
+        self.assertLess(trade["net_return"], trade["gross_return"])
+
+    def test_invalid_equity_curve_mode_raises_clear_error(self):
+        with self.assertRaisesRegex(ValueError, "equity_curve_mode"):
+            build_replay_ledgers([], equity_curve_mode="invalid")
 
     def test_export_reports_missing_parquet_engine_cleanly(self):
         result = build_replay_ledgers(
