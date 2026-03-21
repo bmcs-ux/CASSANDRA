@@ -117,8 +117,8 @@ Skema yang disarankan:
   passed_all_gates,
   actually_executed,
   # gating
-  blocked_by,          # bitmask
-  gate_pass_mask,      # multi-hot
+  blocked_by,          # list[str] gate yang memblokir eksekusi
+  gate_pass_mask,      # multi-hot vector dengan urutan tetap
   # features
   rls_confidence,
   deviation_score,
