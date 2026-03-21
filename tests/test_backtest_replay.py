@@ -113,7 +113,7 @@ class BacktestReplayTests(unittest.TestCase):
         self.assertEqual(result.decision_ledger[0]["skip_reason"], "missing_exit_price")
         self.assertFalse(result.decision_ledger[0]["actually_executed"])
         self.assertEqual(result.decision_ledger[0]["blocked_by"], ["exit_price_available"])
-        self.assertEqual(result.decision_ledger[0]["gate_pass_mask"], [1, 1, 0, 0])
+        self.assertEqual(result.decision_ledger[0]["gate_pass_mask"], [1, 1, 0, 1])
 
     def test_multi_cycle_multi_symbol_builds_additive_equity_curve_and_drawdown(self):
         cycles = [
@@ -213,6 +213,120 @@ class BacktestReplayTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir, patch("backtest.replay.find_spec", return_value=None):
             with self.assertRaisesRegex(RuntimeError, "Parquet export"):
                 export_replay_ledgers_to_parquet(result, tmpdir, run_metadata={"run_id": "demo"})
+
+    def test_sprint2_feature_fields_multi_horizon_labels_and_gate_attribution(self):
+        cycles = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.2000},
+                "trade_signals": {
+                    "EURUSD": {
+                        "signal": "HOLD",
+                        "preferred_action": "BUY",
+                        "entry_price": 1.2000,
+                        "blocked_by": ["confidence_gate"],
+                        "action_mask": {"can_buy": False, "can_sell": True, "confidence_gate": False},
+                        "feature_model": {
+                            "rls_confidence": 0.41,
+                            "deviation_score": 0.08,
+                            "kalman_zscore": -1.2,
+                            "dcc_correlation": 0.67,
+                            "predicted_return": 0.015,
+                            "pred_var": 0.0025,
+                            "spread": 0.0002,
+                            "regime_label": "trend_up",
+                        },
+                    }
+                },
+            },
+            {
+                "timestamp": "2026-01-02T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.2060},
+                "trade_signals": {},
+            },
+            {
+                "timestamp": "2026-01-03T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.1940},
+                "trade_signals": {},
+            },
+            {
+                "timestamp": "2026-01-04T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.2180},
+                "trade_signals": {},
+            },
+            {
+                "timestamp": "2026-01-05T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.2100},
+                "trade_signals": {},
+            },
+            {
+                "timestamp": "2026-01-06T00:00:00Z",
+                "latest_actual_prices": {"EURUSD": 1.2240},
+                "trade_signals": {},
+            },
+        ]
+
+        result = build_replay_ledgers(cycles)
+        decision = result.decision_ledger[0]
+
+        self.assertEqual(result.summary.total_trades, 0)
+        self.assertEqual(result.summary.skipped_trades, 1)
+        self.assertEqual(decision["preferred_action"], "BUY")
+        self.assertEqual(decision["action"], "HOLD")
+        self.assertEqual(decision["skip_reason"], "blocked_by_gate")
+        self.assertIn("confidence_gate", decision["blocked_by"])
+        self.assertEqual(decision["rls_confidence"], 0.41)
+        self.assertEqual(decision["regime_label"], "trend_up")
+        self.assertFalse(decision["can_buy"])
+        self.assertTrue(decision["can_sell"])
+        self.assertIsNotNone(decision["pnl_1"])
+        self.assertIsNotNone(decision["pnl_3"])
+        self.assertIsNotNone(decision["pnl_5"])
+        self.assertGreater(decision["max_favorable"], decision["max_adverse"])
+        self.assertTrue(decision["hit_1"])
+        self.assertTrue(decision["hit_3"])
+        self.assertTrue(decision["hit_5"])
+        self.assertIn("confidence_gate", result.metadata["gate_fields"])
+        self.assertEqual(result.metadata["hold_reason_summary"]["blocked_by_gate"], 1)
+        self.assertEqual(result.metadata["blocked_by_summary"]["confidence_gate"], 1)
+        self.assertEqual(result.gate_attribution[0]["gate"], "confidence_gate")
+        self.assertEqual(result.gate_attribution[0]["unblocked_trade_count"], 1)
+        self.assertGreater(result.gate_attribution[0]["mean_impact"], 0.0)
+
+    def test_custom_horizons_and_gate_masks_stay_consistent(self):
+        cycles = [
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "latest_actual_prices": {"XAUUSD": 3000.0},
+                "trade_signals": {
+                    "XAUUSD": {
+                        "signal": "SELL",
+                        "entry_price": 3000.0,
+                        "gates": {"deviation_gate": True, "news_gate": True},
+                    }
+                },
+            },
+            {
+                "timestamp": "2026-01-02T00:00:00Z",
+                "latest_actual_prices": {"XAUUSD": 2990.0},
+                "trade_signals": {},
+            },
+            {
+                "timestamp": "2026-01-03T00:00:00Z",
+                "latest_actual_prices": {"XAUUSD": 2970.0},
+                "trade_signals": {},
+            },
+        ]
+
+        result = build_replay_ledgers(cycles, horizons=(1, 2))
+        decision = result.decision_ledger[0]
+
+        self.assertIn("deviation_gate", decision["gate_fields"])
+        self.assertIn("news_gate", decision["gate_fields"])
+        self.assertEqual(len(decision["gate_fields"]), len(decision["gate_pass_mask"]))
+        self.assertIsNotNone(decision["pnl_1"])
+        self.assertIsNone(decision["pnl_3"])
+        self.assertEqual(result.metadata["horizons"], [1, 2])
 
 
 if __name__ == "__main__":
