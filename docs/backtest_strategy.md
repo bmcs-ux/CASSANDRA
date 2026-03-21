@@ -103,7 +103,7 @@ regime = kmeans(features=[
 Implementasi baseline tersedia di `backtest/replay.py` melalui fungsi `run_one_bar_replay_backtest`.
 
 ## 7) Struktur Parquet
-Skema yang disarankan:
+Schema yang disarankan:
 
 ```text
 {
@@ -142,7 +142,7 @@ Skema yang disarankan:
 }
 ```
 
-## 8) Optimasi proses
+## 8) Optimasi operasional proses
 - Gunakan polars untuk operasi yang kompleks.
 - Gunakan `ProcessPoolExecutor` untuk membagi beban ke seluruh core CPU.
 - Runtime berbasis Google Colab (tanpa koneksi broker maupun MT5), dengan perhitungan komisi dan spread berbasis simulasi.
@@ -166,4 +166,4 @@ Fungsi ini sengaja minimal sebagai fondasi diskusi sebelum menambah:
 - simulasi multi-bar holding,
 - sizing dari `position_units`,
 - stop-loss/take-profit intrabar,
-- portfolio-level constraints.
+- portfolio-level constraints (batasan portofolio).
