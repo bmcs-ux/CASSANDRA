@@ -133,3 +133,22 @@ Berikut empat tugas yang diajukan berdasarkan temuan saat meninjau codebase:
 4. **Tingkatkan pengujian**
    - Temuan: belum ada test untuk memastikan hasil Granger diparse via `identify_significant_exog` dan pemanggilan forecasting tidak miss-argument.
    - Tugas: tambahkan test kontrak fungsi Granger->exog_map dan kontrak pemanggilan forecasting.
+
+
+## Tinjauan Tambahan (Sprint 3 Replay Evaluation)
+
+1. **Perbaiki salah ketik**
+   - Temuan: istilah `risk-adjusted`, `walk-forward`, dan `gate attribution` masih berpotensi ditulis tidak konsisten di dokumen backtest.
+   - Tugas: standarkan istilah teknis Sprint 3 pada seluruh dokumentasi backtest agar pencarian dan audit artefak lebih mudah.
+
+2. **Perbaiki bug**
+   - Temuan: replay baseline sudah kaya ledger, tetapi belum ada guard evaluasi sistematis untuk kombinasi threshold/gate sehingga perbandingan konfigurasi rawan dilakukan manual dan tidak konsisten.
+   - Tugas: gunakan framework eksperimen terstruktur untuk mencegah evaluasi konfigurasi dilakukan secara ad-hoc di notebook atau script terpisah.
+
+3. **Perbaiki komentar/dokumentasi**
+   - Temuan: sebelum perubahan ini, dokumentasi belum menjelaskan pemisahan antara baseline replay (`signal`) dan eksperimen counterfactual (`preferred_action` + label horizon).
+   - Tugas: pertahankan dokumentasi yang menegaskan perbedaan kedua mode evaluasi agar interpretasi hasil tidak tertukar.
+
+4. **Tingkatkan pengujian**
+   - Temuan: kebutuhan Sprint 3 menambah risiko regresi pada ranking, walk-forward split, dan segmentasi regime.
+   - Tugas: perluas pengujian untuk kasus tie ranking, window tanpa trade, serta fallback segmentasi regime saat fitur parsial hilang.

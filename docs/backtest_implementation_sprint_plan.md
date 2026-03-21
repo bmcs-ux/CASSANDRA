@@ -200,6 +200,7 @@ Hasil akhir:
 4. Perluas test replay.
 5. Baru lanjut ke gate attribution dan eksperimen.
 
+
 ## 7. Backlog temuan code review
 
 ### 7.1 Perbaikan salah ketik
@@ -219,3 +220,49 @@ Hasil akhir:
  - Tambahkan coverage replay untuk SELL, biaya transaksi, fallback harga, dan missing exit price.
 
 ---
+
+## 8. Checklist implementasi Sprint 3
+
+### Backlog utama
+
+ - [x] Tambahkan grid eksperimen threshold/gate yang dapat membentuk banyak kombinasi parameter secara sistematis.
+ - [x] Tambahkan walk-forward validation berbasis window kronologis tanpa data leakage.
+ - [x] Tambahkan segmentasi regime dari `regime_label` artefak, dengan fallback heuristik dari volatility/trend/correlation/spread.
+ - [x] Tambahkan ranking kombinasi parameter berbasis return yang disesuaikan risiko, tail loss, dan stabilitas antar-window.
+ - [x] Dokumentasikan cara penggunaan replay backtest dan eksperimen Sprint 3 di `backtest/docs.md`.
+
+### Acceptance criteria
+
+ - [x] Banyak konfigurasi parameter bisa dijalankan dari satu replay ledger.
+ - [x] Hasil per kombinasi memuat ringkasan train/test per walk-forward window.
+ - [x] Hasil bisa dipecah per regime market.
+ - [x] Ranking akhir mempertimbangkan risk-adjusted return dan stabilitas.
+ - [x] Dokumentasi penggunaan replay/eksperimen tersedia.
+
+## 9. Ringkasan kondisi implementasi metodologi yang sudah diterapkan
+
+Poin metodologi pada `docs/backtest_strategy.md` yang kini sudah diterapkan:
+
+ - Replay baseline tetap event-replay satu bar: eksekusi di akhir cycle `t`, tutup di `t+1`.
+ - Biaya transaksi dua sisi (`fee + slippage`) tetap dibawa ke ledger replay.
+ - Decision ledger menyimpan `preferred_action`, `blocked_by`, `gate_pass_mask`, snapshot fitur model, dan label outcome multi-horizon.
+ - Grid eksperimen tersedia untuk parameter:
+   - `RLS_CONFIDENCE_ENTRY_THRESHOLD`
+   - `RLS_DEVIATION_THRESHOLD`
+   - `RLS_DEVIATION_CLOSE_ALL_THRESHOLD`
+   - `CONSENSUS_THRESHOLD`
+   - `KALMAN_FLIP_ZSCORE`
+ - Walk-forward validation sudah tersedia dalam bentuk rolling train/test windows.
+ - Segmentasi regime sudah tersedia via `regime_label`, plus fallback heuristik dari `pred_var`, `predicted_return`, `dcc_correlation`, dan `spread`.
+ - Ranking konfigurasi sudah mempertimbangkan:
+   - total return test
+   - Sharpe sederhana
+   - max drawdown
+   - CVaR/tail loss sederhana
+   - stabilitas antar-window
+
+Catatan batas implementasi saat ini:
+
+ - Ranking masih heuristik dan belum berupa optimizer portofolio penuh.
+ - Eksperimen saat ini mengevaluasi ledger/label replay yang sudah ada, belum menjalankan simulasi holding multi-bar yang dinamis.
+ - Segmentasi regime fallback masih rule-based, belum clustering seperti contoh KMeans di strategi.
