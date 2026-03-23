@@ -1,7 +1,7 @@
 
 ---
 
-# CASSANDRA Project: Multi-Timeframe Quant sistem
+# CASSANDRA Project: Multi-Timeframe Quant System
 
 ## 1. Ringkasan Proyek
 CASSANDRA adalah sistem perdagangan algoritmik berbasis statistik tingkat lanjut yang menggabungkan model **VARX**, **DCC-GARCH**, dan **Kalman Filter** ke dalam satu kesatuan sistem adaptif. Proyek ini dirancang dengan arsitektur hibrida untuk memaksimalkan efisiensi komputasi:
@@ -23,7 +23,7 @@ Sistem telah dimodularisasi untuk memisahkan antara logika perdagangan, simulasi
 .
 ├── adapters/               # Layer Abstraksi API
 │   ├── mt5_adapter.py      # Adapter untuk Live Trading (MT5/mt5linux)
-│   └── dummy_MetaTrader5.py# Simulator untuk Backtest di Colab
+│   └── dummy_MetaTrader5.py # Simulator playback MT5 untuk Colab/backtest
 ├── monitoring/             # Logika Runtime VPS
 │   └── monitor_for_vps.py  # Script monitoring & adaptasi RLS real-time
 ├── data_base/              # Partitioned Data Lake (Parquet)
@@ -35,7 +35,7 @@ Sistem telah dimodularisasi untuk memisahkan antara logika perdagangan, simulasi
 │   └── transformer/        # Deep Learning untuk prediksi perilaku masa depan
 ├── backtest/               # Simulasi & Validasi
 │   └── replay.py           # Engine untuk Simulated Replay menggunakan dummy adapter
-├── preprocessing/          # Transformasi Data & Stationarity Test
+├── preprocessing/          # Transformasi data & stationarity test
 ├── raw/                    # Data Ingestion (FRED & Broker API)
 ├── vps_sync/               # Sinkronisasi Artefak Model (.pkl)
 └── main.py                 # Orchestrator Utama (Training & Deployment)
@@ -49,7 +49,7 @@ Sistem telah dimodularisasi untuk memisahkan antara logika perdagangan, simulasi
 
 ## 5. Alur Deployment (Hybrid Model)
 1.  **Fase Inisialisasi:** `main.py` menjalankan pipeline lengkap di Colab, mengunduh data makro, melakukan fitting, dan menghasilkan `vps_sync/fitted_ensemble.pkl`.
-2.  **Fase Validasi:** `backtest/replay.py` memvalidasi model menggunakan `adapters/dummy_MetaTrader5.py` terhadap data historis di `data_base`.
+2.  **Fase Validasi:** artifact monitoring direplay dari data historis via `adapters/dummy_MetaTrader5.py` + normalisasi `backtest.monitor_bridge`, lalu ledger dievaluasi oleh `backtest/replay.py`.
 3.  **Fase VPS:** `monitoring/monitor_for_vps.py` dimuat di server, menggunakan `adapters/mt5_adapter.py` untuk berinteraksi dengan pasar secara real-time dengan update adaptif RLS.
 
 ---
