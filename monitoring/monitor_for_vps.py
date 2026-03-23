@@ -171,13 +171,13 @@ MT5_LOGIN = parameter.MT5_LOGIN
 MT5_PASSWORD = parameter.MT5_PASSWORD
 MT5_SERVER = parameter.MT5_SERVER
 
-preprocessing_path = os.path.join(current_script_dir, 'preprocesing')
+preprocessing_path = os.path.join(current_script_dir, 'preprocessing')
 if preprocessing_path not in sys.path:
     sys.path.insert(0, preprocessing_path)
 
-from preprocesing.log_return import apply_log_return_to_price as _apply_log_return_to_price
-from preprocesing.combine_data import combine_log_returns as _combine_log_returns
-from preprocesing.stationarity_test import test_and_stationarize_data as _test_and_stationarize_data
+from preprocessing.log_return import apply_log_return_to_price as _apply_log_return_to_price
+from preprocessing.combine_data import combine_log_returns as _combine_log_returns
+from preprocessing.stationarity_test import test_and_stationarize_data as _test_and_stationarize_data
 
 warnings.filterwarnings("ignore")
 

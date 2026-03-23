@@ -61,6 +61,23 @@ Catatan:
 - evaluasi Sprint 3 memakai `preferred_action` + label horizon (`pnl_1`, `pnl_3`, `pnl_5`) agar eksperimen threshold/gate dapat diulang tanpa membangun ulang semua artefak;
 - bila `entry_price` tidak ada, replay akan fallback ke `latest_actual_prices[symbol]`.
 
+## 2.1 Menormalisasi output `monitor_for_vps.py` ke kontrak replay
+
+Untuk workflow Colab/backtest yang memakai artefak monitoring realtime, gunakan bridge `backtest.monitor_bridge` untuk mengubah summary monitoring menjadi `cycle_results` yang kompatibel dengan replay engine.
+
+```python
+from backtest.monitor_bridge import normalize_monitor_cycles_for_replay
+from backtest.replay import build_replay_ledgers
+
+normalized_cycles = normalize_monitor_cycles_for_replay(
+    monitoring_cycles,
+    symbol_to_group={"EURUSD": "fx_major"},
+)
+result = build_replay_ledgers(normalized_cycles, fee_bps=2.0, slippage_bps=1.0)
+```
+
+Bridge ini akan menurunkan field replay seperti `preferred_action`, `feature_model`, `action_mask`, dan `blocked_by` dari payload monitoring yang sudah ada.
+
 ## 3. Cara menjalankan replay baseline
 
 ```python

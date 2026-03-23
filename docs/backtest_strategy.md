@@ -100,7 +100,7 @@ regime = kmeans(features=[
 - Jangan gunakan data masa depan saat membangun fitur cycle `t`.
 
 ## 6) Implementasi awal di repo
-Implementasi baseline tersedia di `backtest/replay.py` melalui fungsi `run_one_bar_replay_backtest`.
+Implementasi baseline tersedia di `backtest/replay.py` melalui fungsi `run_one_bar_replay_backtest`. Untuk artefak dari `monitor_for_vps.py`, gunakan `backtest.monitor_bridge` agar payload monitoring dinormalisasi menjadi `cycle_results` replay-ready sebelum diproses ledger replay.
 
 ## 7) Struktur Parquet
 Schema yang disarankan:
