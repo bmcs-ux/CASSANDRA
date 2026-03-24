@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 import pandas as pd
@@ -45,7 +45,7 @@ def run_backtest_simulation(data_base_dir: str = "data_base") -> List[Dict[str, 
         mock_mt5.inject_historical_data(symbol, symbol_df)
         max_len = max(max_len, len(symbol_df))
 
-    backtest_id = "BTEST_" + datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    backtest_id = "BTEST_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     all_cycle_results: List[Dict[str, Any]] = []
 
     for i in range(max_len):
