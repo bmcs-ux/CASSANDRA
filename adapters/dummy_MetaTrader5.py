@@ -4,6 +4,7 @@ import random
 from typing import Dict, Optional
 
 import numpy as np
+import pandas as pd
 
 # --- Mock MT5 Constants ---
 TRADE_ACTION_DEAL = 0
@@ -110,7 +111,14 @@ def _history_row_for_symbol(symbol: str):
 # --- Historical Playback Controls ---
 def inject_historical_data(symbol, df):
     normalized = _normalize_symbol(symbol)
-    _historical_buffer[normalized] = df.reset_index(drop=True).copy()
+    local_df = df.reset_index(drop=True).copy()
+
+    if 'time' in local_df.columns:
+        local_df['time'] = pd.to_datetime(local_df['time'], utc=True, errors='coerce')
+    elif 'timestamp' in local_df.columns:
+        local_df['timestamp'] = pd.to_datetime(local_df['timestamp'], utc=True, errors='coerce')
+
+    _historical_buffer[normalized] = local_df
     row = _history_row_for_symbol(normalized)
     if row is not None:
         _apply_history_row(normalized, row)
@@ -139,6 +147,34 @@ def set_account_equity(equity: float, balance: Optional[float] = None):
     mock_account_state["margin_free"] = mock_account_state["equity"] - mock_account_state["margin"]
 
 
+
+
+def set_simulation_step(index: int):
+    """Compat helper for backtest runner naming."""
+    set_current_step(index)
+
+
+def get_current_sim_time(symbol: Optional[str] = None):
+    if symbol:
+        row = _history_row_for_symbol(symbol)
+        if row is not None:
+            return row.get('time', row.get('timestamp'))
+
+    for sym in _historical_buffer:
+        row = _history_row_for_symbol(sym)
+        if row is not None:
+            return row.get('time', row.get('timestamp'))
+    return None
+
+
+def eval(code: str):
+    """Best-effort eval shim used by MT5Adapter when backend has no RPC eval."""
+    local_ctx = {
+        'mt5': MetaTrader5(),
+        '__import__': __import__,
+    }
+    import builtins
+    return builtins.eval(code, {'__builtins__': builtins.__dict__}, local_ctx)
 def _apply_history_row(symbol: str, row) -> None:
     symbol_data = _ensure_symbol(symbol)
     close_price = float(row.get('close', row.get('Close', row.get('last', row.get('mid', row.get('price', symbol_data['bid']))))))
@@ -360,7 +396,7 @@ def copy_rates_range(symbol, timeframe, date_from, date_to):
     if 'timestamp' in local_df.columns:
         ts = pd.to_datetime(local_df['timestamp'], utc=True)
     elif 'time' in local_df.columns:
-        ts = pd.to_datetime(local_df['time'], utc=True, unit='s', errors='coerce')
+        ts = pd.to_datetime(local_df['time'], utc=True, errors='coerce')
     else:
         ts = pd.RangeIndex(start=0, stop=len(local_df), step=1)
 

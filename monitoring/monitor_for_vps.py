@@ -1,6 +1,6 @@
 import pandas as pd
 import numbers
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import warnings
 import numpy as np
 import time
@@ -538,19 +538,12 @@ def fetch_high_frequency_data(log_stream, mt5_adapter_instance, mt5_timeframe_ma
     for pair_name, symbol in PAIRS.items():
         log_stream.write(f"  [INFO] Mengunduh {pair_name} ({symbol}) dengan interval {HF_BASE_INTERVAL} dari {start_date.date()} hingga {end_date.date()}\n")
         try:
-            import textwrap
-
-            code = (
-                f'mt5.copy_rates_range("{symbol}", {mt5_timeframe}, '
-                f'__import__("datetime").datetime.fromtimestamp({start_ts}), '
-                f'__import__("datetime").datetime.fromtimestamp({end_ts}))'
+            rates = mt5_adapter_instance.copy_rates_range(
+                symbol,
+                mt5_timeframe,
+                datetime.fromtimestamp(start_ts, tz=timezone.utc),
+                datetime.fromtimestamp(end_ts, tz=timezone.utc),
             )
-
-            mt5_adaptor = MT5Adapter()
-            rates_raw = mt5_adaptor.eval(code)
-
-            import rpyc
-            rates = rpyc.utils.classic.obtain(rates_raw)
 
             if rates is not None and len(rates) > 0:
                 data = pd.DataFrame(rates)
@@ -1024,6 +1017,98 @@ def send_signal_to_trade_engine(signal_data: dict, log_stream) -> bool:
         log_stream.write(f"    [ERROR] Unexpected error sending signal to Trade Engine for {signal_data.get('pair_name', 'N/A')}: {e}\n")
     return False
 
+
+
+def run_single_monitoring_cycle(
+    mt5_adapter_instance,
+    pipeline_run_id_for_monitor,
+    cycle_count,
+    log_stream=sys.stdout,
+    is_backtest=False,
+    interval_seconds: Optional[float] = None,
+):
+    """Run one monitoring cycle to support both live mode and historical replay."""
+    cycle_start_time = time.time()
+
+    hf_raw_data_dfs = fetch_high_frequency_data(
+        log_stream,
+        mt5_adapter_instance,
+        MT5_TIMEFRAME_MAP,
+        parameter.PAIRS,
+        parameter.HF_LOOKBACK_DAYS,
+        parameter.HF_BASE_INTERVAL,
+    )
+
+    hf_log_returns_dict, hf_combined_log_returns_df, _, _ = preprocess_high_frequency_data(
+        log_stream,
+        hf_raw_data_dfs,
+        _apply_log_return_to_price,
+        _combine_log_returns,
+        _test_and_stationarize_data,
+        prepare_high_frequency_exogenous_data,
+        {},
+        parameter.alpha,
+    )
+
+    latest_hf_actual_prices = {}
+    trade_signals = {}
+
+    for pair_name, df in hf_raw_data_dfs.items():
+        if df.empty or "Close" not in df.columns:
+            continue
+        latest_hf_actual_prices[pair_name] = float(df["Close"].iloc[-1])
+
+        signal = "HOLD"
+        reason = "Insufficient data"
+        if (
+            pair_name in hf_log_returns_dict
+            and not hf_log_returns_dict[pair_name].empty
+            and len(hf_log_returns_dict[pair_name]) >= 2
+        ):
+            recent_ret = float(hf_log_returns_dict[pair_name].iloc[-1, 0])
+            signal = "BUY" if recent_ret > 0 else "SELL" if recent_ret < 0 else "HOLD"
+            reason = f"Simple replay heuristic from latest return={recent_ret:+.6e}"
+
+        trade_signals[pair_name] = {
+            "signal": signal,
+            "entry_price": latest_hf_actual_prices[pair_name],
+            "stop_loss": None,
+            "take_profit": None,
+            "position_units": 0,
+            "reason": reason,
+        }
+
+        if signal in ("BUY", "SELL"):
+            signal_payload = {
+                "signal_id": f"{pair_name.replace('/', '')}_{cycle_count}",
+                "action": signal,
+                "symbol": pair_name,
+                "entry_price": latest_hf_actual_prices[pair_name],
+                "pipeline_run_id": pipeline_run_id_for_monitor,
+            }
+            if not is_backtest:
+                send_signal_to_trade_engine(signal_payload, log_stream)
+            else:
+                log_stream.write(f"[SIM] Signal generated: {signal_payload['action']} for {pair_name}\n")
+
+    cycle_duration = float(time.time() - cycle_start_time)
+    if interval_seconds is not None and not is_backtest:
+        time_to_sleep = interval_seconds - cycle_duration
+        if time_to_sleep > 0:
+            time.sleep(time_to_sleep)
+
+    return {
+        "cycle_number": cycle_count,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "latest_actual_prices": latest_hf_actual_prices,
+        "trade_signals": trade_signals,
+        "rls_metrics": {},
+        "global_confidence": 0.0,
+        "pipeline_run_id": pipeline_run_id_for_monitor,
+        "cycle_duration_seconds": cycle_duration,
+        "is_backtest": bool(is_backtest),
+    }
+
 def start_realtime_monitoring(
     total_duration_minutes,
     interval_seconds,
@@ -1265,726 +1350,29 @@ def start_realtime_monitoring(
     try:
         while time.time() < end_time:
             cycle_count += 1
-            cycle_start_time = time.time()
-            log_stream = log_stream_main
+            log_stream_main.write(
+                f"\n--- Monitoring Cycle {cycle_count} (Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')})---\n"
+            )
+            log_stream_main.flush()
 
-            skip_individual_trade_decisions = False
-
-            log_stream.write(f"\n--- Monitoring Cycle {cycle_count} (Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')})---\n")
-            log_stream.flush()
-
-            hf_raw_data_dfs = fetch_high_frequency_data(
-                log_stream,
-                mt5_adapter_instance,
-                current_mt5_timeframe_map,
-                parameter.PAIRS,
-                parameter.HF_LOOKBACK_DAYS,
-                parameter.HF_BASE_INTERVAL
+            current_cycle_results_summary = run_single_monitoring_cycle(
+                mt5_adapter_instance=mt5_adapter_instance,
+                pipeline_run_id_for_monitor=pipeline_run_id_for_monitor,
+                cycle_count=cycle_count,
+                log_stream=log_stream_main,
+                is_backtest=False,
+                interval_seconds=interval_seconds,
             )
 
-            hf_log_returns_dict, hf_combined_log_returns_df, _, hf_fred_exog_aligned = preprocess_high_frequency_data(
-                log_stream,
-                hf_raw_data_dfs,
-                _apply_log_return_to_price,
-                _combine_log_returns,
-                _test_and_stationarize_data,
-                prepare_high_frequency_exogenous_data,
-                final_stationarized_fred_data,
-                parameter.alpha
-            )
-
-            if hf_combined_log_returns_df.empty or len(hf_combined_log_returns_df) <= parameter.maxlag_test:
-                log_stream.write(f"  [WARN] Not enough valid high-frequency log returns for RLS. Skipping this cycle.\n")
-                log_stream.flush()
-                current_cycle_results_summary = {
-                    "cycle_number": cycle_count,
-                    "timestamp": datetime.now().isoformat(),
-                    "latest_actual_prices": {},
-                    "deviation_results": {},
-                    "rls_forecast" : {},
-                    "rls_health" : {},
-                    "trade_signals": {},
-                    "parameter_deviations": {},
-                    "pipeline_run_id": pipeline_run_id_for_monitor,
-                    "cycle_log": "Not enough data for RLS."
-                }
-
-                send_monitoring_data_to_colab(current_cycle_results_summary, log_stream)
-
-                time_to_sleep = interval_seconds - (time.time() - cycle_start_time)
-                if time_to_sleep > 0:
-                    time.sleep(time_to_sleep)
-                continue
-
-            latest_hf_actual_prices = {}
-            latest_hf_atrs = {}
-            if hf_raw_data_dfs:
-                for pair_name, df in hf_raw_data_dfs.items():
-                    if not df.empty and 'Close' in df.columns:
-                        latest_hf_actual_prices[pair_name] = df['Close'].iloc[-1]
-                        atr_series = calculate_atr(log_stream, df)
-                        if not atr_series.empty:
-                            latest_hf_atrs[pair_name] = atr_series.iloc[-1]
-
-            rls_forecasts = {}
-            rls_metrics = {}
-            parameter_deviations = {}
-            confidence_per_group = {}
-            maturity_per_group = {}
-            rls_param_deviation_score = 0.0
-            dcc_group_metrics = {}
-            kalman_metrics = {}
-            consensus_metrics = {}
-            mean_reversion_candidates = {}
-
-            PAIR_REALIZED_STD_CACHE.clear()
-            volatility_window = int(getattr(parameter, "RLS_VOLATILITY_WINDOW", 96))
-            for pair_name, pair_df in hf_raw_data_dfs.items():
-                if pair_df.empty or 'Close' not in pair_df.columns:
-                    continue
-                close_std = pair_df['Close'].astype(float).tail(volatility_window).std()
-                if pd.notnull(close_std) and close_std > 0:
-                    PAIR_REALIZED_STD_CACHE[pair_name] = float(close_std)
-
-            for estimator_key, estimator_data in rls_estimators.items():
-                current_theta = estimator_data['theta']
-                current_P = estimator_data['P']
-                baseline_theta_ref = estimator_data['baseline_theta_ref']
-                n_endog = estimator_data['n_endog']
-                k_regressors = estimator_data['k_regressors']
-                endog_names_group = estimator_data['endog_names']
-                exog_names_group = estimator_data['exog_names']
-                maxlags = estimator_data['maxlags']
-                timeframe_name = estimator_data.get('timeframe', 'H1')
-                group_name = estimator_data.get('group_name', estimator_key)
-                estimator_label = f"{timeframe_name}::{group_name}"
-
-                try:
-                    dcc_model = dcc_model_registry.get(timeframe_name)
-                    cache_key = f"{timeframe_name}::{group_name}"
-                    if dcc_model is not None and _is_new_timeframe_close(
-                        timeframe_name,
-                        hf_combined_log_returns_df.index[-1],
-                        dcc_timeframe_last_close_map,
-                        marker_key=cache_key,
-                    ):
-                        H_next = dcc_model.forecast(horizon=1)
-                        dcc_metrics_cache[cache_key] = {
-                            "contagion_score": _compute_contagion_score_from_covariance(
-                                H_next,
-                                getattr(dcc_model, "column_names", None),
-                                endog_names_group,
-                            )
-                        }
-                    contagion_score = dcc_metrics_cache.get(cache_key, {}).get("contagion_score", 0.0)
-                except Exception:
-                    try:
-                        group_returns_for_corr = hf_combined_log_returns_df[endog_names_group].tail(volatility_window)
-                        corr_matrix = group_returns_for_corr.corr().values
-                        if corr_matrix.shape[0] > 1:
-                            upper = np.triu(np.abs(corr_matrix), k=1)
-                            non_zero = upper[upper > 0]
-                            contagion_score = float(np.mean(non_zero)) if non_zero.size else 0.0
-                        else:
-                            contagion_score = 0.0
-                    except Exception:
-                        contagion_score = 0.0
-                dcc_group_metrics[estimator_label] = {
-                    "contagion_score": float(np.clip(contagion_score, 0.0, 1.0))
-                }
-                if timeframe_name == "H1":
-                    dcc_group_metrics[group_name] = dcc_group_metrics[estimator_label]
-
-                latest_hf_combined_log_returns_df_row = hf_combined_log_returns_df.iloc[[-1]]
-                latest_hf_fred_exog_df_row = hf_fred_exog_aligned.iloc[[-1]] if not hf_fred_exog_aligned.empty else pd.DataFrame()
-
-                lagged_data_for_phi_dict = {}
-
-                for lag in range(1, maxlags + 1):
-                    for endog_name in endog_names_group:
-                        col_name = f'Lag{lag}_{endog_name}'
-                        try:
-                            val = hf_combined_log_returns_df[endog_name].iloc[-lag]
-                        except IndexError:
-                            val = hf_combined_log_returns_df[endog_name].iloc[-1]
-                        lagged_data_for_phi_dict[col_name] = val
-
-                lagged_hf_log_returns_df = pd.DataFrame([lagged_data_for_phi_dict])
-
-
-                Y_t = latest_hf_combined_log_returns_df_row[endog_names_group].values
-
-                if Y_t.shape[0] == 0:
-                    log_stream.write(f"    [WARN] No current endogenous data (Y_t) for RLS update for {estimator_label}. Skipping RLS update.\n")
-                    log_stream.flush()
-                    continue
-
-                Phi = _build_regressor_matrix(log_stream, latest_hf_combined_log_returns_df_row, latest_hf_fred_exog_df_row, lagged_hf_log_returns_df, maxlags, endog_names_group, exog_names_group)
-
-                last_update_bar_timestamp = estimator_data.get("last_update_bar_timestamp")
-                current_bar_timestamp = latest_hf_combined_log_returns_df_row.index[-1]
-
-                last_Y_t = estimator_data.get("last_Y_t")
-                recent_endog_std = np.nanstd(
-                    hf_combined_log_returns_df[endog_names_group].tail(volatility_window).values
-                )
-                if np.isnan(recent_endog_std) or recent_endog_std <= 0:
-                    recent_endog_std = 1e-12
-
-                min_innovation_scale = getattr(parameter, "RLS_MIN_INNOVATION_SCALE", 0.5)
-                innovation_history = estimator_data.get("innovation_history", [])
-                if innovation_history:
-                    innovation_ref = float(np.median(innovation_history[-60:]))
-                    innovation_ref = max(innovation_ref, 1e-12)
-                else:
-                    innovation_ref = recent_endog_std
-                innovation_threshold = min_innovation_scale * innovation_ref
-                innovation_norm = float("inf") if last_Y_t is None else float(np.linalg.norm(Y_t - last_Y_t))
-
-                should_update_rls = True
-                if not _is_new_timeframe_close(
-                    timeframe_name,
-                    current_bar_timestamp,
-                    timeframe_last_close_map,
-                    marker_key=estimator_label,
-                ):
-                    should_update_rls = False
-                    log_stream.write(
-                        f"    [INFO] {estimator_label}: parameter update skipped (timeframe candle not closed).\n"
-                    )
-                elif last_update_bar_timestamp is not None and current_bar_timestamp <= last_update_bar_timestamp:
-                    should_update_rls = False
-                    log_stream.write(
-                        f"    [INFO] {estimator_label}: RLS update skipped (no new candle).\n"
-                    )
-                elif innovation_norm < innovation_threshold:
-                    should_update_rls = False
-                    log_stream.write(
-                        f"    [INFO] {estimator_label}: RLS update skipped (innovation {innovation_norm:.6e} < threshold {innovation_threshold:.6e}).\n"
-                    )
-
-                if should_update_rls:
-                    updated_theta, updated_P = _perform_rls_update(log_stream, current_theta, current_P, Phi, Y_t, parameter.FORGETTING_FACTOR)
-                    estimator_data['theta'] = updated_theta
-                    estimator_data['P'] = updated_P
-                    estimator_data["rls_update_count"] += 1
-                    estimator_data["last_update_bar_timestamp"] = current_bar_timestamp
-                    estimator_data["last_Y_t"] = Y_t.copy()
-                    estimator_data["innovation_history"].append(float(innovation_norm if np.isfinite(innovation_norm) else 0.0))
-                else:
-                    updated_theta, updated_P = current_theta, current_P
-
-                n_rls_updates = estimator_data["rls_update_count"]
-
-                try:
-                    pred_variance = float(Phi @ updated_P @ Phi.T)
-                except Exception:
-                    pred_variance = float("inf")
-
-                if not np.isfinite(pred_variance):
-                    pred_variance = float(parameter.RLS_INITIAL_P_DIAG)
-
-                pred_variance = max(pred_variance, 1e-12)
-                estimator_data["pred_variance_history"].append(pred_variance)
-                deviation_norm = np.linalg.norm(updated_theta - baseline_theta_ref)
-
-                min_updates = parameter.RLS_MIN_UPDATES_FOR_CONFIDENCE
-
-                maturity = min(1.0, n_rls_updates / min_updates)
-
-                window_size = 60
-                recent_variance_history = list(estimator_data["pred_variance_history"])[-window_size:]
-                variance_ref = np.median(recent_variance_history) if recent_variance_history else parameter.RLS_INITIAL_P_DIAG
-                confidence = _compute_rls_confidence(
-                    maturity=maturity,
-                    pred_variance=pred_variance,
-                    deviation_norm=deviation_norm,
-                    variance_ref=variance_ref,
-                )
-
-                rls_metrics[estimator_label] = {
-                    "confidence": float(confidence),
-                    "maturity": float(maturity),
-                    "deviation": float(deviation_norm),
-                    "pred_var": float(pred_variance)
-                }
-
-                mean_reversion_z = float(deviation_norm / (np.sqrt(pred_variance) + 1e-12))
-                low_vol_gate = float(getattr(parameter, "MEAN_REVERSION_LOW_VOL_PREDVAR", 0.002))
-                high_dev_gate = float(getattr(parameter, "MEAN_REVERSION_HIGH_Z", 2.5))
-                if mean_reversion_z >= high_dev_gate and pred_variance <= low_vol_gate:
-                    mean_reversion_candidates[group_name] = {
-                        "zscore": mean_reversion_z,
-                        "pred_var": float(pred_variance)
-                    }
-                confidence_per_group[estimator_label] = confidence
-                maturity_per_group[estimator_label] = float(maturity)
-                parameter_deviations[estimator_label] = float(deviation_norm)
-                if timeframe_name == "H1":
-                    confidence_per_group[group_name] = confidence
-                    maturity_per_group[group_name] = float(maturity)
-                    parameter_deviations[group_name] = float(deviation_norm)
-
-                log_stream.write(
-                    f"    [INFO] {estimator_label} | "
-                    f"Deviation: {deviation_norm:.4f} | "
-                    f"Confidence: {confidence:.3f} | "
-                    f"Maturity: {maturity:.2f} | "
-                    f"PredVar: {pred_variance:.6e}\n"
-                )
-                log_stream.flush()
-
-            global_rls_confidence, rls_param_deviation_score = _summarize_rls_global_metrics(
-                confidence_map=confidence_per_group,
-                maturity_map=maturity_per_group,
-                deviation_map=parameter_deviations,
-            )
-
-            log_stream.write(f"    [INFO] GLOBAL RLS SCORE | Deviation: {rls_param_deviation_score:.4f} | Confidence: {global_rls_confidence:.3f}\n")
-            log_stream.flush()
-
-            if global_rls_confidence < parameter.RLS_CONFIDENCE_ENTRY_THRESHOLD:
-                skip_individual_trade_decisions = parameter._RLS_CONFIDENCE
-                log_stream.write(
-                    f"    [WARN] Global RLS Confidence ({global_rls_confidence:.4f}) "
-                    f"is below Entry Threshold ({parameter.RLS_CONFIDENCE_ENTRY_THRESHOLD:.4f}). "
-                    f"New trade entries are PAUSED for this cycle.\n"
-                )
-            else:
-                log_stream.write(
-                    f"    [INFO] Global RLS Confidence ({global_rls_confidence:.4f}) is OK. "
-                )
-
-            if rls_param_deviation_score > parameter.RLS_DEVIATION_CLOSE_ALL_THRESHOLD:
-                log_stream.write(f"\n    [ALERT] RLS parameter deviation ({rls_param_deviation_score:.4f}) exceeds GLOBAL CLOSE ALL threshold ({parameter.RLS_DEVIATION_CLOSE_ALL_THRESHOLD:.4f}). Sending signal to close all open positions.\n")
-                send_signal_to_trade_engine({"signal_id": f"CLOSE_ALL_RISK_{pipeline_run_id_for_monitor}_{cycle_count}", "action": "CLOSE_ALL"}, log_stream)
-                skip_individual_trade_decisions = parameter._RLS_DEVIATION_THRESHOLD
-                log_stream.flush()
-            else:
-                log_stream.write(f"    [INFO] Global RLS deviation ({rls_param_deviation_score:.4f}) is below CLOSE ALL threshold.\n")
-                log_stream.flush()
-
-            news_status = news_manager_instance.get_news_status()
-            if news_status.get("is_restricted"):
-                skip_individual_trade_decisions = parameter.NEWS
-                log_stream.write(f"    [WARN] News restriction detected. Setting skip_individual_trade_decisions to True.\n")
-                log_stream.flush()
-
-            trade_signals = {}
-
-            if not skip_individual_trade_decisions:
-                for pair_name in latest_hf_actual_prices:
-
-                    if pair_name not in latest_hf_actual_prices or pair_name not in latest_hf_atrs:
-                        log_stream.write(
-                            f"    [WARN] Skipping trade decision for {pair_name}: Missing latest actual price or ATR.\n"
-                        )
-                        trade_signals[pair_name] = {
-                            "signal": "HOLD",
-                            "entry_price": np.nan,
-                            "stop_loss": np.nan,
-                            "take_profit": np.nan,
-                            "position_units": 0,
-                            "rr_ratio": np.nan,
-                            "snr": np.nan,
-                            "reason": "Missing high-frequency data"
-                        }
-                        continue
-
-                    raw_rls_expected_return = infer_rls_expected_return(
-                        log_stream=log_stream,
-                        pair_name=pair_name, # Fungsi akan mencari group & index sendiri
-                        rls_estimators=rls_estimators,
-                        current_hf_combined_log_returns_df=latest_hf_combined_log_returns_df_row,
-                        latest_hf_fred_exog_df=latest_hf_fred_exog_df_row,
-                        lagged_hf_log_returns_df=lagged_hf_log_returns_df
-                    )
-
-                    if raw_rls_expected_return is None:
-                        trade_signals[pair_name] = {"signal": "HOLD", "reason": "RLS unavailable"}
-                        continue
-
-                    prev_expected_return = expected_return_state.get(pair_name, float(raw_rls_expected_return))
-                    rls_expected_return = _stabilize_expected_return(
-                        raw_expected_return=float(raw_rls_expected_return),
-                        previous_expected_return=prev_expected_return,
-                    )
-                    expected_return_state[pair_name] = float(rls_expected_return)
-
-                    predicted_mean = latest_hf_actual_prices[pair_name] * np.exp(rls_expected_return)
-                    forecast_std = _estimate_forecast_std(pair_name, latest_hf_actual_prices[pair_name], confidence_level, kalman_metrics)
-                    forecast_std_return = forecast_std / max(latest_hf_actual_prices[pair_name], 1e-12)
-
-                    pair_group = PAIR_TO_RLS_GROUP.get(pair_name)
-
-                    if pair_group is None:
-                        log_stream.write(
-                            f"    [WARN] {pair_name}: No RLS group mapping found via VARX_ENDOG_GROUPS. "
-                            f"Skipping trade for safety.\n"
-                        )
-
-                        trade_signals[pair_name] = {
-                            "signal": "HOLD",
-                            "entry_price": np.nan,
-                            "stop_loss": np.nan,
-                            "take_profit": np.nan,
-                            "position_units": 0,
-                            "rr_ratio": np.nan,
-                            "snr": np.nan,
-                            "reason": "No RLS group mapping"
-                        }
-                        continue
-
-                    rls_forecasts[pair_name] = {
-                        "rls_predicted_price": float(predicted_mean),
-                        "rls_expected_return_pct": float(rls_expected_return * 100)
-                    }
-
-                    pair_rls_deviation = parameter_deviations.get(pair_group, float("inf"))
-
-                    if pair_rls_deviation > parameter.RLS_DEVIATION_THRESHOLD:
-                        log_stream.write(
-                            f"    [WARN] {pair_name}: RLS deviation for group "
-                            f"{pair_group} ({pair_rls_deviation:.4f}) exceeds threshold "
-                            f"({parameter.RLS_DEVIATION_THRESHOLD:.4f}). "
-                            f"Model parameters are unstable.\n"
-                        )
-                        trade_signals[pair_name] = {
-                            "signal": "HOLD",
-                            "entry_price": latest_hf_actual_prices[pair_name],
-                            "stop_loss": np.nan,
-                            "take_profit": np.nan,
-                            "position_units": 0,
-                            "rr_ratio": np.nan,
-                            "snr": np.nan,
-                            "reason": f"RLS deviation too high for group {pair_group}"
-                        }
-                        continue
-                    account_info = mt5_adapter_instance.account_info()
-                    if account_info is not None:
-                        current_equity = account_info.equity
-                        # Gunakan balance jika ingin risiko lebih konservatif saat ada floating loss
-                        # current_balance = account_info.balance
-                    else:
-                        log_stream.write("[ERROR] Could not get account info, using fallback equity.\n")
-                        current_equity = parameter.EQUITY # Fallback
-
-                    group_dcc_score = dcc_group_metrics.get(pair_group, {}).get("contagion_score", 0.0)
-                    dcc_risk_multiplier = 1 + (group_dcc_score * float(getattr(parameter, "DCC_RISK_MULTIPLIER", 0.5)))
-
-                    kalman_result = _run_kalman_filter_step(pair_name, latest_hf_actual_prices[pair_name])
-                    kalman_metrics[pair_name] = kalman_result
-
-                    signal = decide_trade(
-                        log_stream=log_stream,
-                        pair_name=pair_name,
-                        latest_actual_price=latest_hf_actual_prices[pair_name],
-                        expected_return=rls_expected_return,
-                        forecast_std=forecast_std,          # Masukkan versi PRICE di sini
-                        forecast_std_return=forecast_std_return, # Masukkan versi RETURN di sini
-                        hf_atr=latest_hf_atrs[pair_name],
-                        equity=current_equity,
-                        risk_pct=parameter.RISK_PER_TRADE_PCT,
-                        k_atr_stop=parameter.K_ATR_STOP * dcc_risk_multiplier,
-                        k_model_stop=parameter.K_MODEL_STOP * dcc_risk_multiplier,
-                        snr_threshold=parameter.SNR_THRESHOLD,
-                        rls_param_deviation_score=pair_rls_deviation,
-                        rls_deviation_threshold=parameter.RLS_DEVIATION_THRESHOLD,
-                        tp_rr_ratio=parameter.TP_RR_RATIO,
-                        kalman_velocity=float(kalman_result.get("velocity", 0.0)),
-                        kalman_innovation_zscore=float(kalman_result.get("innovation_zscore", 0.0)),
-                        kalman_trend=str(kalman_result.get("trend", "FLAT")),
-                    )
-
-                    signal_d1 = "BUY" if predicted_mean >= latest_hf_actual_prices[pair_name] else "SELL"
-                    signal_h1 = _signal_from_return(rls_expected_return)
-                    signal_m15 = signal.get("signal", "HOLD") if signal.get("signal") in ("BUY", "SELL") else signal_h1
-
-                    consensus_score = _compute_consensus_score(signal_d1, signal_h1, signal_m15)
-                    consensus_threshold = float(getattr(parameter, "CONSENSUS_THRESHOLD", 0.15))
-                    consensus_metrics[pair_name] = {
-                        "score": float(consensus_score),
-                        "signal_d1": signal_d1,
-                        "signal_h1": signal_h1,
-                        "signal_m15": signal_m15,
-                        "kalman_trend": kalman_result["trend"],
-                        "kalman_z": float(kalman_result["innovation_zscore"])
-                    }
-
-                    pair_pred_var = _resolve_pair_pred_variance(rls_metrics, pair_group, timeframe="H1")
-                    pred_var_gate = float(getattr(parameter, "RLS_MAX_PRED_VARIANCE_FOR_ENTRY", 25.0))
-                    if signal.get("signal") in ("BUY", "SELL"):
-                        direction_ok = _passes_rls_directional_confirmation(signal.get("signal", "HOLD"), rls_expected_return)
-                        variance_ok = pair_pred_var < pred_var_gate
-                        if not (direction_ok and variance_ok):
-                            signal["signal"] = "HOLD"
-                            signal["reason"] = (
-                                f"RLS confirmation failed (raw_ret={float(raw_rls_expected_return):.3e}, "
-                                f"ret={rls_expected_return:.3e}, pred_var={pair_pred_var:.3e}, "
-                                f"dir_ok={int(direction_ok)}, var_ok={int(variance_ok)})"
-                            )
-
-                    if signal.get("signal") == "BUY":
-                        if not (consensus_score >= consensus_threshold and kalman_result["trend"] == "UP"):
-                            signal["signal"] = "HOLD"
-                            signal["reason"] = "Consensus/Kalman gate blocked BUY"
-                    elif signal.get("signal") == "SELL":
-                        if not (consensus_score <= -consensus_threshold and kalman_result["trend"] == "DOWN"):
-                            signal["signal"] = "HOLD"
-                            signal["reason"] = "Consensus/Kalman gate blocked SELL"
-
-                    if abs(kalman_result["innovation_zscore"]) >= float(getattr(parameter, "KALMAN_FLIP_ZSCORE", 3.0)):
-                        signal["reason"] = f"Kalman structural break z={kalman_result['innovation_zscore']:.2f}"
-                        if signal.get("signal") != "HOLD":
-                            signal["signal"] = "HOLD"
-
-                    trade_signals[pair_name] = signal
-
-                    # ✅ KIRIM DI SINI
-                    if signal["signal"] in ("BUY", "SELL"):
-                        log_stream.write(
-                            f"  [INFO] Sending {signal['signal']} signal for {pair_name} to Trade Engine...\n"
-                        )
-                        send_signal_to_trade_engine(
-                            {
-                                "signal_id": f"{pair_name.replace('/', '')}",
-                                "action": signal["signal"],
-                                "symbol": pair_name,
-                                "entry_price": signal["entry_price"],
-                                "stop_loss": signal["stop_loss"],
-                                "take_profit": signal["take_profit"],
-                                "position_units": signal["position_units"],
-                                "snr": signal.get("snr"),
-                                "pipeline_run_id": pipeline_run_id_for_monitor,
-                            },
-                            log_stream,
-                        )
-
-            else:
-                # Logika penentu alasan skip untuk transparansi audit
-                reasons = []
-                if global_rls_confidence < parameter.RLS_CONFIDENCE_ENTRY_THRESHOLD:
-                    reasons.append(f"Low Confidence ({global_rls_confidence:.4f})")
-                if rls_param_deviation_score > parameter.RLS_DEVIATION_CLOSE_ALL_THRESHOLD:
-                    reasons.append(f"High Deviation ({rls_param_deviation_score:.4f})")
-                if news_status.get("is_restricted"):
-                    reasons.append("News Restriction")
-
-                reason_str = ", ".join(reasons) if reasons else "Unknown Safety Filter"
-
-                log_stream_main.write(
-                    f"    [INFO] Skipping individual trade decisions. Reasons: [{reason_str}]\n"
-                )
-
-                for pair_name in latest_hf_actual_prices:
-                    trade_signals[pair_name] = {
-                        "signal": "HOLD",
-                        "entry_price": latest_hf_actual_prices.get(pair_name, np.nan),
-                        "stop_loss": np.nan,
-                        "take_profit": np.nan,
-                        "position_units": 0,
-                        "rr_ratio": np.nan,
-                        "snr": np.nan,
-                        "reason": f"Skipped by safety filter: {reason_str}",
-                    }
-
-            deviation_results = detect_price_deviation(
-                log_stream,
-                latest_hf_actual_prices,
-                rls_forecasts,
-                kalman_metrics,
-                confidence_level
-            )
-
-            current_cycle_results = {
-                "cycle_number": cycle_count,
-                "timestamp": datetime.now().isoformat(),
-                "latest_actual_prices": convert_numpy_floats(latest_hf_actual_prices),
-                "rls_health": convert_numpy_floats(rls_metrics),
-                "rls_forecast": format_for_dashboard(rls_forecasts, latest_hf_actual_prices),
-                "deviation_results": convert_numpy_floats(deviation_results),
-                "trade_signals": convert_numpy_floats(trade_signals),
-                "parameter_deviations": convert_numpy_floats(parameter_deviations),
-                "dcc_metrics": convert_numpy_floats(dcc_group_metrics),
-                "kalman_metrics": convert_numpy_floats(kalman_metrics),
-                "consensus_metrics": convert_numpy_floats(consensus_metrics),
-                "mean_reversion_candidates": convert_numpy_floats(mean_reversion_candidates),
-                "pipeline_run_id": pipeline_run_id_for_monitor,
-                "cycle_duration_seconds": float(time.time() - cycle_start_time),
-                "news_status": convert_numpy_floats(news_status),
-                "log_summary": f"Completed cycle {cycle_count}. Price deviation for {sum(1 for r in deviation_results.values() if r['ci_breach'])} pairs. Trade signals generated for {sum(1 for s in trade_signals.values() if s['signal'] != 'HOLD')} pairs."
-            }
-
-            # --- Position Modification Logic (NEW) ---
-            log_stream.write(f"\n[INFO] Checking for position modifications...\n")
-            if mt5_adapter_instance._logged_in:
-                open_positions = mt5_adapter_instance.positions_get(magic=parameter.MAGIC_NUMBER)
-
-                if open_positions:
-                    log_stream.write(f"  [INFO] Found {len(open_positions)} open positions to consider for modification.\n")
-
-                    for pos in open_positions:
-                        pos_symbol = pos.symbol
-                        pos_ticket = pos.ticket
-                        pos_type = pos.type
-                        current_sl = pos.sl
-                        current_tp = pos.tp
-                        latest_actual_price = latest_hf_actual_prices.get(pos_symbol) # Pastikan mapping symbol benar
-
-                        # 1. Mapping Simbol MT5 ke Nama Internal
-                        mapped_pair_name = None
-                        for p_name, yf_symbol in parameter.PAIRS.items():
-                            if pos_symbol.replace("/", "").replace("=X", "") == yf_symbol.replace("=X", "").replace("-", "").replace("/", ""):
-                                mapped_pair_name = p_name
-                                break
-
-                        if mapped_pair_name is None:
-                            log_stream.write(f"    [WARN] Could not map MT5 symbol '{pos_symbol}' to internal name. Skipping.\n")
-                            continue
-
-                        # 2. Validasi Data RLS/ATR (Hapus pengecekan restored_forecast)
-                        if mapped_pair_name not in latest_hf_actual_prices or mapped_pair_name not in latest_hf_atrs:
-                            log_stream.write(f"    [WARN] Missing price/ATR data for {mapped_pair_name}. Skipping ticket {pos_ticket}.\n")
-                            continue
-
-                        latest_actual_price = latest_hf_actual_prices[mapped_pair_name]
-                        hf_atr = latest_hf_atrs[mapped_pair_name]
-
-                        # 3. Inferensi RLS Expected Return & Volatility
-                        rls_expected_return = infer_rls_expected_return(
-                            log_stream=log_stream,
-                            pair_name=mapped_pair_name,
-                            rls_estimators=rls_estimators,
-                            current_hf_combined_log_returns_df=latest_hf_combined_log_returns_df_row,
-                            latest_hf_fred_exog_df=latest_hf_fred_exog_df_row,
-                            lagged_hf_log_returns_df=lagged_hf_log_returns_df
-                        )
-
-                        if rls_expected_return is None:
-                            log_stream.write(f"    [WARN] RLS return unavailable for {mapped_pair_name}. Skipping.\n")
-                            continue
-
-                        # Estimasi Volatilitas model + update Kalman untuk manajemen posisi.
-                        forecast_std = _estimate_forecast_std(mapped_pair_name, latest_actual_price, confidence_level, kalman_metrics)
-
-                        # 4. Logika Exit early berbasis Kalman flip (menggantikan RLS flip).
-                        pair_group = PAIR_TO_RLS_GROUP.get(mapped_pair_name)
-                        dcc_score = dcc_group_metrics.get(pair_group, {}).get("contagion_score", 0.0)
-                        # Clamp multiplier agar threshold flip tidak lebih sensitif dari baseline.
-                        dcc_flip_multiplier = max(1.0, 1 + (dcc_score * float(getattr(parameter, "DCC_FLIP_EPS_MULTIPLIER", 0.5))))
-
-                        kalman_result = _run_kalman_filter_step(mapped_pair_name, latest_actual_price)
-                        kalman_metrics[mapped_pair_name] = kalman_result
-                        kalman_flip_threshold = float(getattr(parameter, "KALMAN_FLIP_ZSCORE", 3.0)) * dcc_flip_multiplier
-
-                        is_buy = pos_type == mt5_adapter_instance.ORDER_TYPE_BUY
-                        is_sell = pos_type == mt5_adapter_instance.ORDER_TYPE_SELL
-                        kalman_trend = str(kalman_result.get("trend", "FLAT"))
-                        kalman_z = abs(float(kalman_result.get("innovation_zscore", 0.0)))
-
-                        close_due_to_kalman_flip = (
-                            ((is_buy and kalman_trend == "DOWN") or (is_sell and kalman_trend == "UP"))
-                            and kalman_z >= kalman_flip_threshold
-                        )
-
-                        if close_due_to_kalman_flip:
-                            reason = f"Kalman Flip z={kalman_z:.2f}"
-                            log_stream.write(f"    [ALERT] Closing {pos_ticket} ({mapped_pair_name}): {reason}.\n")
-                            close_signal = {
-                                "signal_id": f"CLOSE_FLIP_{pos_ticket}_{cycle_count}",
-                                "action": "CLOSE",
-                                "ticket": pos_ticket,
-                                "symbol": pos_symbol,
-                                "reason": reason
-                            }
-                            send_signal_to_trade_engine(close_signal, log_stream)
-                            continue
-
-                        # 5. Dynamic SL/TP Adjustments
-                        # Ambil skor deviasi parameter untuk menyesuaikan ketatnya stop loss
-                        pair_rls_deviation = parameter_deviations.get(pair_group, 0.0)
-                        increase_factor_sl = 1 + pair_rls_deviation * parameter.RLS_SCALING_FACTOR_SL
-
-                        k_atr_stop_adj = min(parameter.K_ATR_STOP * increase_factor_sl,
-                                 parameter.K_ATR_STOP * parameter.RLS_SL_MAX_MULTIPLIER)
-                        k_model_stop_adj = min(parameter.K_MODEL_STOP * increase_factor_sl,
-                                   parameter.K_MODEL_STOP * parameter.RLS_SL_MAX_MULTIPLIER)
-
-                        # 6. Kalkulasi Target SL/TP Baru
-                        sl_dist = max(k_atr_stop_adj * hf_atr, k_model_stop_adj * forecast_std)
-                        entry_price = float(getattr(pos, "price_open", latest_actual_price) or latest_actual_price)
-                        new_tp = _compute_dynamic_position_tp(
-                            is_buy=is_buy,
-                            latest_actual_price=float(latest_actual_price),
-                            entry_price=entry_price,
-                            sl_dist=float(sl_dist),
-                            kalman_result=kalman_result,
-                            pair_rls_deviation=float(pair_rls_deviation),
-                        )  # TP dinamis Kalman + guard RR minimum + guard posisi vs entry
-
-                        if is_buy:
-                            target_sl = latest_actual_price - sl_dist
-                            new_sl = max(target_sl, current_sl) if current_sl != 0 else target_sl
-                        else:
-                            target_sl = latest_actual_price + sl_dist
-                            new_sl = min(target_sl, current_sl) if current_sl != 0 else target_sl
-
-                        # 7. Eksekusi Modifikasi jika melewati threshold minimum (point)
-                        symbol_info = mt5_adapter_instance.symbol_info(pos_symbol)
-                        min_change = symbol_info.point * 10 if symbol_info else 0.0001
-
-                        if abs(new_sl - current_sl) > min_change or abs(new_tp - current_tp) > min_change:
-                            modify_signal = {
-                                "signal_id": f"MODIFY_{pos_ticket}_{cycle_count}",
-                                "action": "MODIFY",
-                                "ticket": pos_ticket,
-                                "symbol": pos_symbol,
-                                "new_sl": new_sl,
-                                "new_tp": new_tp
-                            }
-                            send_signal_to_trade_engine(modify_signal, log_stream)
-                        else:
-                            log_stream.write(f"    [INFO] Ticket {pos_ticket}: Change below threshold. No action.\n")
-                else:
-                    log_stream.write(f"  [INFO] No open positions found for modification.\n")
-            else:
-                log_stream.write(f"  [INFO] Skipping position modification check (MT5 Offline or Global Pause).\n")
-
-            current_cycle_results_summary = {
-                "cycle_number": cycle_count,
-                "timestamp": datetime.now().isoformat(),
-                "latest_actual_prices": convert_numpy_floats(latest_hf_actual_prices),
-                "rls_health": convert_numpy_floats(rls_metrics), # Gunakan rls_metrics yang diisi di loop
-                "deviation_results": convert_numpy_floats(deviation_results),
-                "rls_forecast": format_for_dashboard(rls_forecasts, latest_hf_actual_prices),
-                #"rls_forecast": convert_numpy_floats(rls_forecasts),
-                "trade_signals": convert_numpy_floats(trade_signals),
-                "parameter_deviations": convert_numpy_floats(parameter_deviations),
-                "dcc_metrics": convert_numpy_floats(dcc_group_metrics),
-                "kalman_metrics": convert_numpy_floats(kalman_metrics),
-                "consensus_metrics": convert_numpy_floats(consensus_metrics),
-                "mean_reversion_candidates": convert_numpy_floats(mean_reversion_candidates),
-                "pipeline_run_id": pipeline_run_id_for_monitor,
-                "global_metrics": {
-                    "global_confidence": float(global_rls_confidence),
-                    "global_deviation": float(rls_param_deviation_score),
-                    "cycle_duration": float(time.time() - cycle_start_time)
-                }
-            }
             all_monitoring_results.append(current_cycle_results_summary)
+            send_monitoring_data_to_colab(current_cycle_results_summary, log_stream_main)
 
-            send_monitoring_data_to_colab(current_cycle_results_summary, log_stream)
-
-            cycle_duration = time.time() - cycle_start_time
-            log_stream.write(f"--- Monitoring Cycle {cycle_count} (Finished: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}). Cycle Duration: {cycle_duration:.2f} seconds. Pipeline Run ID: {pipeline_run_id_for_monitor}---\n")
-            log_stream.flush()
-
-            time_to_sleep = interval_seconds - cycle_duration
-            if time_to_sleep > 0:
-                log_stream.write(f"    [INFO] Waiting for {time_to_sleep:.2f} seconds until next cycle.\n")
-                time.sleep(time_to_sleep)
-            else:
-                log_stream.write(f"    [WARN] Cycle duration ({cycle_duration:.2f}s) exceeded interval ({interval_seconds}s). No sleep.\n")
+            log_stream_main.write(
+                f"--- Monitoring Cycle {cycle_count} (Finished: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}). "
+                f"Cycle Duration: {current_cycle_results_summary.get('cycle_duration_seconds', 0.0):.2f} seconds. "
+                f"Pipeline Run ID: {pipeline_run_id_for_monitor}---\n"
+            )
+            log_stream_main.flush()
 
     except Exception as e:
         log_stream.write(f"[CRITICAL ERROR] Monitoring loop encountered an unhandled exception: {e}\n")
