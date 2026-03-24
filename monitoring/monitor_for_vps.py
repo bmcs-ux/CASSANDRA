@@ -1,6 +1,6 @@
 import pandas as pd
 import numbers
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import warnings
 import numpy as np
 import time
@@ -538,19 +538,12 @@ def fetch_high_frequency_data(log_stream, mt5_adapter_instance, mt5_timeframe_ma
     for pair_name, symbol in PAIRS.items():
         log_stream.write(f"  [INFO] Mengunduh {pair_name} ({symbol}) dengan interval {HF_BASE_INTERVAL} dari {start_date.date()} hingga {end_date.date()}\n")
         try:
-            import textwrap
-
-            code = (
-                f'mt5.copy_rates_range("{symbol}", {mt5_timeframe}, '
-                f'__import__("datetime").datetime.fromtimestamp({start_ts}), '
-                f'__import__("datetime").datetime.fromtimestamp({end_ts}))'
+            rates = mt5_adapter_instance.copy_rates_range(
+                symbol,
+                mt5_timeframe,
+                datetime.fromtimestamp(start_ts, tz=timezone.utc),
+                datetime.fromtimestamp(end_ts, tz=timezone.utc),
             )
-
-            mt5_adaptor = MT5Adapter()
-            rates_raw = mt5_adaptor.eval(code)
-
-            import rpyc
-            rates = rpyc.utils.classic.obtain(rates_raw)
 
             if rates is not None and len(rates) > 0:
                 data = pd.DataFrame(rates)
@@ -1023,6 +1016,98 @@ def send_signal_to_trade_engine(signal_data: dict, log_stream) -> bool:
     except Exception as e:
         log_stream.write(f"    [ERROR] Unexpected error sending signal to Trade Engine for {signal_data.get('pair_name', 'N/A')}: {e}\n")
     return False
+
+
+
+def run_single_monitoring_cycle(
+    mt5_adapter_instance,
+    pipeline_run_id_for_monitor,
+    cycle_count,
+    log_stream=sys.stdout,
+    is_backtest=False,
+    interval_seconds: Optional[float] = None,
+):
+    """Run one monitoring cycle to support both live mode and historical replay."""
+    cycle_start_time = time.time()
+
+    hf_raw_data_dfs = fetch_high_frequency_data(
+        log_stream,
+        mt5_adapter_instance,
+        MT5_TIMEFRAME_MAP,
+        parameter.PAIRS,
+        parameter.HF_LOOKBACK_DAYS,
+        parameter.HF_BASE_INTERVAL,
+    )
+
+    hf_log_returns_dict, hf_combined_log_returns_df, _, _ = preprocess_high_frequency_data(
+        log_stream,
+        hf_raw_data_dfs,
+        _apply_log_return_to_price,
+        _combine_log_returns,
+        _test_and_stationarize_data,
+        prepare_high_frequency_exogenous_data,
+        {},
+        parameter.alpha,
+    )
+
+    latest_hf_actual_prices = {}
+    trade_signals = {}
+
+    for pair_name, df in hf_raw_data_dfs.items():
+        if df.empty or "Close" not in df.columns:
+            continue
+        latest_hf_actual_prices[pair_name] = float(df["Close"].iloc[-1])
+
+        signal = "HOLD"
+        reason = "Insufficient data"
+        if (
+            pair_name in hf_log_returns_dict
+            and not hf_log_returns_dict[pair_name].empty
+            and len(hf_log_returns_dict[pair_name]) >= 2
+        ):
+            recent_ret = float(hf_log_returns_dict[pair_name].iloc[-1, 0])
+            signal = "BUY" if recent_ret > 0 else "SELL" if recent_ret < 0 else "HOLD"
+            reason = f"Simple replay heuristic from latest return={recent_ret:+.6e}"
+
+        trade_signals[pair_name] = {
+            "signal": signal,
+            "entry_price": latest_hf_actual_prices[pair_name],
+            "stop_loss": None,
+            "take_profit": None,
+            "position_units": 0,
+            "reason": reason,
+        }
+
+        if signal in ("BUY", "SELL"):
+            signal_payload = {
+                "signal_id": f"{pair_name.replace('/', '')}_{cycle_count}",
+                "action": signal,
+                "symbol": pair_name,
+                "entry_price": latest_hf_actual_prices[pair_name],
+                "pipeline_run_id": pipeline_run_id_for_monitor,
+            }
+            if not is_backtest:
+                send_signal_to_trade_engine(signal_payload, log_stream)
+            else:
+                log_stream.write(f"[SIM] Signal generated: {signal_payload['action']} for {pair_name}\n")
+
+    cycle_duration = float(time.time() - cycle_start_time)
+    if interval_seconds is not None and not is_backtest:
+        time_to_sleep = interval_seconds - cycle_duration
+        if time_to_sleep > 0:
+            time.sleep(time_to_sleep)
+
+    return {
+        "cycle_number": cycle_count,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "latest_actual_prices": latest_hf_actual_prices,
+        "trade_signals": trade_signals,
+        "rls_metrics": {},
+        "global_confidence": 0.0,
+        "pipeline_run_id": pipeline_run_id_for_monitor,
+        "cycle_duration_seconds": cycle_duration,
+        "is_backtest": bool(is_backtest),
+    }
 
 def start_realtime_monitoring(
     total_duration_minutes,
