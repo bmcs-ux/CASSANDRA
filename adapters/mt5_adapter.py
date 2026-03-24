@@ -100,10 +100,15 @@ class MT5Adapter:
 
     # --- RATES ---
     def eval(self, code: str):
+        backend_eval = getattr(self._mt5, "eval", None)
+        if callable(backend_eval):
+            return backend_eval(code)
+
         conn = getattr(self._mt5, "_MetaTrader5__conn", None)
-        if conn is None or not hasattr(conn, "eval"):
-            raise AttributeError("Underlying MT5 backend does not expose eval().")
-        return conn.eval(code)
+        if conn is not None and hasattr(conn, "eval"):
+            return conn.eval(code)
+
+        raise AttributeError("Underlying MT5 backend does not expose eval().")
 
     def account_info(self):
         account_info = getattr(self._mt5, "account_info", None)
