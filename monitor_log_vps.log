@@ -1,0 +1,251 @@
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 03:12:03] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 03:12:03] [MT5Adapter] MT5 initialized
+[2026-03-24 03:12:03] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 03:37:23] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 03:37:23] [MT5Adapter] MT5 initialized
+[2026-03-24 03:37:23] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 03:39:20] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 03:39:20] [MT5Adapter] MT5 initialized
+[2026-03-24 03:39:20] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 03:41:25] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 03:41:25] [MT5Adapter] MT5 initialized
+[2026-03-24 03:41:25] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 03:54:41] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 03:54:41] [MT5Adapter] MT5 initialized
+[2026-03-24 03:54:41] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 07:31:35] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 07:31:35] [MT5Adapter] MT5 initialized
+[2026-03-24 07:31:35] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 07:35:16] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 07:35:16] [MT5Adapter] MT5 initialized
+[2026-03-24 07:35:16] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 07:46:28] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 07:46:28] [MT5Adapter] MT5 initialized
+[2026-03-24 07:46:28] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 07:48:04] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 07:48:04] [MT5Adapter] MT5 initialized
+[2026-03-24 07:48:04] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 07:49:37] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 07:49:37] [MT5Adapter] MT5 initialized
+[2026-03-24 07:49:37] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+[NEWS] Attempting to sync news...
+[NEWS] [NEWS] Syncing daily economic calendar...
+[NEWS] [NEWS] Sync complete. Found 12 High Impact events.
+[NEWS] Loading local news...
+[NEWS] [NEWS] Loaded 12 events from local cache.
+[INFO] Attempting to load data from VPS_DATA_DIR: /content/drive/MyDrive/books/CASSANDRA
+[INFO] Legacy forecast data not found at /content/drive/MyDrive/books/CASSANDRA/vps_sync/restored_forecasts.pkl. Using model-based deviation logic.
+[WARN] FRED data file not found at /content/drive/MyDrive/books/CASSANDRA/vps_sync/final_fred_data.pkl. Monitoring will be incomplete.
+[WARN] Fitted models file not found at /content/drive/MyDrive/books/CASSANDRA/vps_sync/fitted_models.pkl. Parameter update might be incomplete.
+[WARN] No ensemble models provided for estimator initialization.
+[ERROR] Ensemble model payload missing. Cannot proceed with monitoring.
+
+[INFO] Starting real-time monitoring for 525600 minutes, checking every 60 seconds.
+[INFO] Initializing MetaTrader5...
+[2026-03-24 07:59:32] [MT5Adapter] Using native MetaTrader5.
+[2026-03-24 07:59:32] [MT5Adapter] MT5 initialized
+[2026-03-24 07:59:32] [MT5Adapter] Logged in: 206905748
+[OK] MetaTrader5 initialized and logged in successfully.
+[NEWS] Attempting to sync news...
+[NEWS] [NEWS] Syncing daily economic calendar...
+[NEWS] [NEWS] Sync complete. Found 12 High Impact events.
+[NEWS] Loading local news...
+[NEWS] [NEWS] Loaded 12 events from local cache.
+[INFO] Attempting to load data from VPS_DATA_DIR: /content/drive/MyDrive/books/CASSANDRA
+[INFO] Legacy forecast data not found at /content/drive/MyDrive/books/CASSANDRA/vps_sync/restored_forecasts.pkl. Using model-based deviation logic.
+[WARN] FRED data file not found at /content/drive/MyDrive/books/CASSANDRA/vps_sync/final_fred_data.pkl. Monitoring will be incomplete.
+[OK] Successfully loaded model payload from /content/drive/MyDrive/books/CASSANDRA/vps_sync/fitted_ensemble.pkl
+[INFO] Initializing adaptive estimators from ensemble payload.
+    [INFO] Expected k_regressors for RLS theta: 8
+    [OK] Baseline VARX parameters extracted successfully. Shape: (8, 3)
+  [OK] RLS initialized for D1::FX_Majors. Theta shape: (8, 3), P shape: (8, 8)
+    [INFO] Expected k_regressors for RLS theta: 10
+    [OK] Baseline VARX parameters extracted successfully. Shape: (10, 2)
+  [OK] RLS initialized for D1::Commodities. Theta shape: (10, 2), P shape: (10, 10)
+    [INFO] Expected k_regressors for RLS theta: 14
+    [OK] Baseline VARX parameters extracted successfully. Shape: (14, 2)
+  [OK] RLS initialized for D1::Risk. Theta shape: (14, 2), P shape: (14, 14)
+    [INFO] Expected k_regressors for RLS theta: 8
+    [OK] Baseline VARX parameters extracted successfully. Shape: (8, 3)
+  [OK] RLS initialized for H1::FX_Majors. Theta shape: (8, 3), P shape: (8, 8)
+    [INFO] Expected k_regressors for RLS theta: 13
+    [OK] Baseline VARX parameters extracted successfully. Shape: (13, 2)
+  [OK] RLS initialized for H1::Commodities. Theta shape: (13, 2), P shape: (13, 13)
+    [INFO] Expected k_regressors for RLS theta: 15
+    [OK] Baseline VARX parameters extracted successfully. Shape: (15, 2)
+  [OK] RLS initialized for H1::Risk. Theta shape: (15, 2), P shape: (15, 15)
+
+--- Monitoring Cycle 1 (Started: 2026-03-24 07:59:39)---
+
+[INFO] Mulai pengunduhan data high-frequency untuk 10 pasangan dari MetaTrader5...
+  [INFO] Mengunduh GBPUSD (GBPUSDm) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk GBPUSD (GBPUSDm) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+  [INFO] Mengunduh AUDUSD (AUDUSDm) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk AUDUSD (AUDUSDm) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+  [INFO] Mengunduh USDCAD (USDCADm) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk USDCAD (USDCADm) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+  [INFO] Mengunduh USDCHF (USDCHFm) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk USDCHF (USDCHFm) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+  [INFO] Mengunduh USDJPY (USDJPYm) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk USDJPY (USDJPYm) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+  [INFO] Mengunduh NZDUSD (NZDUSDm) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk NZDUSD (NZDUSDm) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+  [INFO] Mengunduh XAUUSD (XAUUSDm) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk XAUUSD (XAUUSDm) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+  [INFO] Mengunduh XAGUSD (XAGUSDm) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk XAGUSD (XAGUSDm) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+  [INFO] Mengunduh US500 (US500m) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk US500 (US500m) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+  [INFO] Mengunduh DXY (DXYm) dengan interval 5m dari 2026-03-21 hingga 2026-03-24
+    [ERROR] Gagal mengunduh data untuk DXY (DXYm) dari MetaTrader5: Underlying MT5 backend does not expose eval().
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 550, in fetch_high_frequency_data
+    rates_raw = mt5_adaptor.eval(code)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/content/drive/MyDrive/books/CASSANDRA/adapters/mt5_adapter.py", line 105, in eval
+    raise AttributeError("Underlying MT5 backend does not expose eval().")
+AttributeError: Underlying MT5 backend does not expose eval().
+
+[OK] Pengunduhan data high-frequency selesai.
+
+[INFO] Mulai preprocessing data high-frequency...
+  [INFO] Menggabungkan log return harga ke dalam format 'dict'...
+  [WARN] Input log_return_dfs kosong. Tidak ada yang digabungkan.
+  [INFO] Menggabungkan log return harga ke dalam format 'df'...
+  [WARN] Input log_return_dfs kosong. Tidak ada yang digabungkan.
+
+[INFO] Memeriksa stasioneritas data log-return high-frequency...
+
+[INFO] Melakukan uji stasioneritas (ADF dan PP test) dan differencing jika perlu...
+
+--- Menguji Stasioneritas Log Return Harga ---
+
+[INFO] Tidak ada data log return untuk diuji.
+
+--- Menguji Stasioneritas Data FRED yang Ditransformasi & Differencing Otomatis ---
+
+[INFO] Tidak ada data FRED yang ditransformasi awal untuk diuji.
+
+[INFO] Tidak ada hasil uji stasioneritas yang tersedia.
+
+[INFO] Data FRED Final Stationer:
+[INFO] Tidak ada data FRED yang berhasil distasionerkan.
+
+[OK] Uji stasioneritas dan differencing otomatis selesai.
+  [WARN] Tidak ada data log-return high-frequency untuk menentukan indeks, melewati penyelarasan FRED.
+
+[OK] Preprocessing data high-frequency selesai.
+  [WARN] Not enough valid high-frequency log returns for RLS. Skipping this cycle.
+[CRITICAL ERROR] Monitoring loop encountered an unhandled exception: name 'vps_colab_connector' is not defined
+Traceback (most recent call last):
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 1312, in start_realtime_monitoring
+    send_monitoring_data_to_colab(current_cycle_results_summary, log_stream)
+  File "/content/drive/MyDrive/books/CASSANDRA/monitoring/monitor_for_vps.py", line 996, in send_monitoring_data_to_colab
+    return vps_colab_connector.send_data_to_colab(
+           ^^^^^^^^^^^^^^^^^^^
+NameError: name 'vps_colab_connector' is not defined
+
+[INFO] Real-time monitoring finished.

@@ -6,8 +6,12 @@ try:
     _mt5 = _MT5Class()          # BUAT INSTANCE
     IS_MT5_LINUX = True
 except ImportError:
-    import MetaTrader5 as _mt5  # MODULE
-    IS_MT5_LINUX = False
+    try:
+        import MetaTrader5 as _mt5  # MODULE
+        IS_MT5_LINUX = False
+    except ImportError:
+        import adapters.dummy_MetaTrader5 as _mt5 # FALLBACK
+        IS_MT5_LINUX = False
 
 
 class MT5Adapter:
@@ -21,7 +25,8 @@ class MT5Adapter:
         self._log(
             "Using injected MT5 backend." if mt5_backend is not None
             else "Using mt5linux bridge." if self._is_mt5linux
-            else "Using native MetaTrader5."
+            else "Using native MetaTrader5." if not self._is_mt5linux and mt5_backend is None
+            else "Using dummy MetaTrader5 (fallback)."
         )
 
     def _log(self, msg):

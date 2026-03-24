@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numbers
 from datetime import datetime, timedelta
@@ -15,8 +14,8 @@ import os
 import requests
 
 # NEW: Using MT5Adapter
-from mt5_adapter import MT5Adapter
-from mt5_adapter import MT5_TIMEFRAME_MAP
+from adapters.mt5_adapter import MT5Adapter
+from adapters.mt5_adapter import MT5_TIMEFRAME_MAP
 
 # Global helper function to convert NumPy floats to native Python types
 def convert_numpy_floats(obj):
@@ -159,7 +158,7 @@ import parameter
 current_script_dir = parameter.ROOT_DIR
 if current_script_dir not in sys.path:
     sys.path.insert(0, current_script_dir)
-import vps_colab_connector
+import monitoring.vps_colab_connector
 
 VPS_PARAM_DIR = parameter.VPS_PARAM_DIR
 VPS_DATA_DIR = parameter.VPS_DATA_DIR
@@ -333,7 +332,7 @@ def _build_regressor_matrix(log_stream, current_hf_combined_log_returns_df, late
         if exog_name in latest_hf_fred_exog_df.columns:
             # PERBAIKAN DI SINI: Gunakan .iloc[0] untuk menghindari KeyError pada DatetimeIndex
             val = latest_hf_fred_exog_df[exog_name].iloc[0]
-            
+
         elif exog_name in current_hf_combined_log_returns_df.columns:
             val = current_hf_combined_log_returns_df[exog_name].iloc[0]
         elif normalized_exog_name in latest_hf_fred_exog_df.columns:
@@ -347,7 +346,7 @@ def _build_regressor_matrix(log_stream, current_hf_combined_log_returns_df, late
                     f"    [WARN] Exogenous column {exog_name} (alias: {normalized_exog_name}) not found. Using 0.\n"
                 )
                 _MISSING_EXOG_WARNED.add(warn_key)
-            
+
         phi_list.append(val if pd.notnull(val) else 0.0)
 
     return np.array([phi_list])
@@ -497,7 +496,7 @@ def infer_rls_expected_return(
     # 3. Eksekusi Forecast menggunakan Data dari Estimator yang ditemukan
     try:
         est = rls_estimators[target_group]
-        
+
         Y_hat = rls_forecast_step(
             log_stream=log_stream,
             theta_rls=est["theta"],
@@ -698,20 +697,20 @@ def compute_rls_expected_return_for_pair(
         return None
 
 def decide_trade(
-    log_stream, 
-    pair_name, 
-    latest_actual_price, 
+    log_stream,
+    pair_name,
+    latest_actual_price,
     expected_return,  # Ini adalah predicted move (log return)
     forecast_std,     # satuan price!
     forecast_std_return, # versi satuan log return dari forecast_std
-    hf_atr, 
-    equity, 
-    risk_pct, 
-    k_atr_stop, 
-    k_model_stop, 
-    snr_threshold, 
-    rls_param_deviation_score, 
-    rls_deviation_threshold, 
+    hf_atr,
+    equity,
+    risk_pct,
+    k_atr_stop,
+    k_model_stop,
+    snr_threshold,
+    rls_param_deviation_score,
+    rls_deviation_threshold,
     tp_rr_ratio=1.5,
     kalman_velocity=0.0,
     kalman_innovation_zscore=0.0,
@@ -769,10 +768,10 @@ def decide_trade(
         inc_factor = 1 + (rls_param_deviation_score * parameter.RLS_SCALING_FACTOR_SL)
         k_atr_stop_adj = min(k_atr_stop * inc_factor, k_atr_stop * parameter.RLS_SL_MAX_MULTIPLIER)
         k_model_stop_adj = min(k_model_stop * inc_factor, k_model_stop * parameter.RLS_SL_MAX_MULTIPLIER)
-        
+
         red_factor = 1 - (rls_param_deviation_score * parameter.RLS_SCALING_FACTOR_TP)
         tp_rr_adj = max(parameter.RLS_TP_RR_MIN, tp_rr_ratio * red_factor)
-        
+
         snr_thresh_adj = snr_threshold * (1 + (rls_param_deviation_score * parameter.RLS_SNR_INCREASE_FACTOR))
 
     # 6. SNR Calculation (Predicted Log Return / Return Std Dev)
@@ -805,7 +804,7 @@ def decide_trade(
         return trade_decision
 
     sl_dist = abs(sl_dist)
-    
+
     # Hitung Jarak Prediksi (Target Move) dalam satuan price.
     # Bila predicted_mean terlalu dekat/berlawanan arah dengan arah entry Kalman,
     # pakai minimal target berbasis RR agar TP tidak terlalu sempit.
@@ -835,13 +834,13 @@ def decide_trade(
 
     # Hitung Realized RR Ratio (Penting untuk log dan monitoring)
     # RR = Jarak TP / Jarak SL
-    
+
     trade_decision['take_profit'] = max(tp_price, 0.000001)
     trade_decision['stop_loss'] = max(sl_price, 0.000001)
     # Position Sizing
     max_risk_usd = equity * risk_pct
     raw_units = max_risk_usd / sl_dist
-    
+
     # Apply caps (Saat ini hard cap = 0.01 lot; di bawah 0.01 tidak dieksekusi)
     position_units = max(0.0, min(raw_units, 0.01))
     if position_units < 0.01:
@@ -852,7 +851,7 @@ def decide_trade(
         return trade_decision
 
     trade_decision['position_units'] = round(position_units, 2)
-    
+
     if trade_decision['signal'] != 'HOLD':
         log_stream.write(f"    [OK] {pair_name} {trade_decision['signal']} | SNR: {snr:.2f} | Units: {trade_decision['position_units']}\n")
         trade_decision['reason'] = f"SNR {abs(snr):.2f} > {snr_thresh_adj:.2f}"
@@ -1099,7 +1098,8 @@ def start_realtime_monitoring(
 
     pipeline_run_id_for_monitor = pipeline_run_id if pipeline_run_id is not None else "UNKNOWN_RUN_ID"
 
-    from news_manager import NewsManager
+    from monitoring import NewsManager
+
     logger_news = lambda msg: (log_stream_main.write(f"[NEWS] {msg}\n"), log_stream_main.flush())
     news_manager_instance = NewsManager(data_dir=VPS_DATA_DIR, logger=logger_news)
     # Sync news to populate data, then load it
@@ -1402,7 +1402,7 @@ def start_realtime_monitoring(
 
                 for lag in range(1, maxlags + 1):
                     for endog_name in endog_names_group:
-                        col_name = f'Lag{lag}_{endog_name}' 
+                        col_name = f'Lag{lag}_{endog_name}'
                         try:
                             val = hf_combined_log_returns_df[endog_name].iloc[-lag]
                         except IndexError:
@@ -1634,7 +1634,7 @@ def start_realtime_monitoring(
                             "reason": "No RLS group mapping"
                         }
                         continue
-                    
+
                     rls_forecasts[pair_name] = {
                         "rls_predicted_price": float(predicted_mean),
                         "rls_expected_return_pct": float(rls_expected_return * 100)
@@ -1664,7 +1664,7 @@ def start_realtime_monitoring(
                     if account_info is not None:
                         current_equity = account_info.equity
                         # Gunakan balance jika ingin risiko lebih konservatif saat ada floating loss
-                        # current_balance = account_info.balance 
+                        # current_balance = account_info.balance
                     else:
                         log_stream.write("[ERROR] Could not get account info, using fallback equity.\n")
                         current_equity = parameter.EQUITY # Fallback
@@ -1898,16 +1898,16 @@ def start_realtime_monitoring(
                                 "reason": reason
                             }
                             send_signal_to_trade_engine(close_signal, log_stream)
-                            continue 
+                            continue
 
                         # 5. Dynamic SL/TP Adjustments
                         # Ambil skor deviasi parameter untuk menyesuaikan ketatnya stop loss
                         pair_rls_deviation = parameter_deviations.get(pair_group, 0.0)
                         increase_factor_sl = 1 + pair_rls_deviation * parameter.RLS_SCALING_FACTOR_SL
 
-                        k_atr_stop_adj = min(parameter.K_ATR_STOP * increase_factor_sl, 
+                        k_atr_stop_adj = min(parameter.K_ATR_STOP * increase_factor_sl,
                                  parameter.K_ATR_STOP * parameter.RLS_SL_MAX_MULTIPLIER)
-                        k_model_stop_adj = min(parameter.K_MODEL_STOP * increase_factor_sl, 
+                        k_model_stop_adj = min(parameter.K_MODEL_STOP * increase_factor_sl,
                                    parameter.K_MODEL_STOP * parameter.RLS_SL_MAX_MULTIPLIER)
 
                         # 6. Kalkulasi Target SL/TP Baru
@@ -1949,7 +1949,7 @@ def start_realtime_monitoring(
                     log_stream.write(f"  [INFO] No open positions found for modification.\n")
             else:
                 log_stream.write(f"  [INFO] Skipping position modification check (MT5 Offline or Global Pause).\n")
-                
+
             current_cycle_results_summary = {
                 "cycle_number": cycle_count,
                 "timestamp": datetime.now().isoformat(),
