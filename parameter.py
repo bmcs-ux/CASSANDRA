@@ -99,7 +99,7 @@ IMPUTATION_SPECIAL_ASSETS = [
 lookback_days = 2200
 base_interval = '1d'
 HF_LOOKBACK_DAYS = 3
-HF_BASE_INTERVAL = "5m"
+HF_BASE_INTERVAL = "1m"
 fred_lookback_days = 10 * 365
 
 LOOKBACK_DAYS = {

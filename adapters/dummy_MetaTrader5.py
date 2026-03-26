@@ -6,6 +6,10 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 
+import polars as pl
+import os
+import parameter
+
 # --- Mock MT5 Constants ---
 TRADE_ACTION_DEAL = 0
 TRADE_ACTION_SLTP = 1
@@ -33,6 +37,19 @@ TIMEFRAME_H4 = 240
 TIMEFRAME_D1 = 1440
 TIMEFRAME_W1 = 10080
 TIMEFRAME_MN1 = 43200
+
+# --- Dummy MT5 timeframe mapping to directory names ---
+_timeframe_map = {
+    TIMEFRAME_M1: "M1",
+    TIMEFRAME_M5: "M5",
+    TIMEFRAME_M15: "M15",
+    TIMEFRAME_M30: "M30",
+    TIMEFRAME_H1: "H1",
+    TIMEFRAME_H4: "H4",
+    TIMEFRAME_D1: "D1",
+    TIMEFRAME_W1: "W1",
+    TIMEFRAME_MN1: "MN1",
+}
 
 # --- Mock MT5 Data Structures ---
 TradeResult = collections.namedtuple(
@@ -114,9 +131,9 @@ def inject_historical_data(symbol, df):
     local_df = df.reset_index(drop=True).copy()
 
     if 'time' in local_df.columns:
-        local_df['time'] = pd.to_datetime(local_df['time'], utc=True, errors='coerce')
+        local_df['time'] = pd.to_datetime(local_df['time'], utc=True)
     elif 'timestamp' in local_df.columns:
-        local_df['timestamp'] = pd.to_datetime(local_df['timestamp'], utc=True, errors='coerce')
+        local_df['timestamp'] = pd.to_datetime(local_df['timestamp'], utc=True)
 
     _historical_buffer[normalized] = local_df
     row = _history_row_for_symbol(normalized)
@@ -385,49 +402,136 @@ def terminal_info() -> TerminalInfo:
     )
 
 
+def _load_parquet_lazy(base_dir, asset_registry, log_stream=None):
+    import glob
+    import polars as pl
+
+    result = {}
+
+    for pair, meta in (asset_registry or {}).items():
+        asset_class = meta['asset_class']
+        symbol = meta['symbol']
+        path = os.path.join(
+            base_dir,
+            f"asset_class={asset_class}",
+            f"symbol={symbol}",
+            "timeframe=*",
+        )
+
+        files = glob.glob(os.path.join(path, "*.parquet"))
+        if not files:
+            continue
+
+        if log_stream is not None:
+            _debug_log(log_stream, f"[DEBUG] Menemukan {len(files)} file parquet untuk {pair} di {path}")
+
+        files_by_tf = {}
+        for file_path in files:
+            tf = file_path.split("timeframe=")[-1].split(os.sep)[0]
+            files_by_tf.setdefault(tf, []).append(file_path)
+
+        for tf, tf_files in files_by_tf.items():
+            parquet_df = pl.concat(
+                [pl.read_parquet(file_path) for file_path in sorted(tf_files)],
+                how='vertical_relaxed',
+            )
+            pdf = pd.DataFrame(parquet_df.to_dict(as_series=False))
+            index_col = '__index__' if '__index__' in pdf.columns else None
+            if index_col is not None:
+                pdf[index_col] = pd.to_datetime(pdf[index_col], utc=True, errors='coerce')
+                pdf = pdf.set_index(index_col).sort_index()
+                pdf.index.name = None if index_col == '__index__' else index_col
+                inferred_freq = pd.infer_freq(pdf.index) if len(pdf.index) >= 3 else None
+                if inferred_freq:
+                    pdf.index.freq = inferred_freq
+            result.setdefault(tf, {})[pair] = pdf
+            if log_stream is not None:
+                _debug_log(log_stream, f"[DEBUG] Parquet loaded for {pair} [{tf}] with shape {pdf.shape}")
+
+    return result
+
+# Di dalam dummy_MetaTrader5.py
+
+_GLOBAL_DATA_CACHE = {} # Struktur: { 'M1': { 'GBPUSD': df, ... }, 'H1': { ... } }
+
+def preload_all_data(base_dir, asset_registry):
+    """Fungsi yang kamu buat tadi, kita simpan hasilnya ke cache."""
+    global _GLOBAL_DATA_CACHE
+    print(f"[DUMMY MT5] Preloading data from {base_dir}...")
+    _GLOBAL_DATA_CACHE = _load_parquet_lazy(base_dir, asset_registry)
+    print(f"[DUMMY MT5] Preload complete. Timeframes: {list(_GLOBAL_DATA_CACHE.keys())}")
+
 def copy_rates_range(symbol, timeframe, date_from, date_to):
-    df = _historical_buffer.get(_normalize_symbol(symbol))
-    if df is None or len(df) == 0:
+    # 1. Konversi timeframe integer ke string (misal: 1 -> "M1")
+    tf_str = _timeframe_map.get(timeframe)
+    if not tf_str:
+        print(f"[WARN] Unsupported timeframe: {timeframe}")
+        return np.array([], dtype=[('time', 'i8'), ('open', 'f8'), ('high', 'f8'), ('low', 'f8'), ('close', 'f8'), ('tick_volume', 'i8'), ('spread', 'i4'), ('real_volume', 'i8')])
+
+    # 2. Cek apakah data tersedia di cache global
+    # Kita coba cari dengan nama asli, atau stripping suffix 'm' (GBPUSDm -> GBPUSD)
+    df = None
+    if tf_str in _GLOBAL_DATA_CACHE:
+        # Coba langsung
+        df = _GLOBAL_DATA_CACHE[tf_str].get(symbol)
+        if df is None:
+            # Coba cari tanpa suffix 'm'
+            clean_symbol = symbol.replace('m', '')
+            df = _GLOBAL_DATA_CACHE[tf_str].get(clean_symbol)
+
+    # 3. FALLBACK: Jika tidak ada di cache, lakukan pembacaan disk (kode lama kamu)
+    if df is None:
+        # print(f"[INFO] Cache miss for {symbol} ({tf_str}), attempting disk read...")
+        # ... (Gunakan logika pembacaan Polars yang kamu tulis sebelumnya di sini jika ingin tetap mendukung disk read) ...
+        # Untuk efisiensi, kita asumsikan jika cache kosong, maka data memang tidak ada.
+        print(f"[WARN] No data found in cache for {symbol} ({tf_str})")
+        return np.array([], dtype=[('time', 'i8'), ('open', 'f8'), ('high', 'f8'), ('low', 'f8'), ('close', 'f8'), ('tick_volume', 'i8'), ('spread', 'i4'), ('real_volume', 'i8')])
+
+    # 4. FILTERING (Sangat Cepat karena di RAM)
+    try:
+        # Pastikan date_from dan date_to dalam format UTC timestamp
+        start_ts = pd.Timestamp(date_from).tz_localize('UTC') if date_from.tzinfo is None else pd.Timestamp(date_from)
+        end_ts = pd.Timestamp(date_to).tz_localize('UTC') if date_to.tzinfo is None else pd.Timestamp(date_to)
+
+        # Karena df.index sudah diset sebagai datetime di _load_parquet_lazy
+        filtered_df = df.loc[start_ts:end_ts].copy()
+
+        if filtered_df.empty:
+            return np.array([], dtype=[('time', 'i8'), ('open', 'f8'), ('high', 'f8'), ('low', 'f8'), ('close', 'f8'), ('tick_volume', 'i8'), ('spread', 'i4'), ('real_volume', 'i8')])
+
+        # 5. STANDARISASI FORMAT MT5
+        res = filtered_df.reset_index()
+        # Cari kolom waktu (bisa bernama 'time', 'timestamp', atau hasil reset_index '__index__')
+        time_col = res.columns[0] 
+        res.rename(columns={time_col: 'time'}, inplace=True)
+        
+        # Konversi ke Epoch Seconds
+        res['time'] = res['time'].view('int64') // 10**9
+
+        # Pastikan OHLC lowercase
+        for col in ['open', 'high', 'low', 'close']:
+            if col.capitalize() in res.columns:
+                res.rename(columns={col.capitalize(): col}, inplace=True)
+        
+        # Tambahkan kolom wajib jika absen
+        if 'tick_volume' not in res.columns:
+            res['tick_volume'] = res.get('volume', 0)
+        if 'spread' not in res.columns:
+            res['spread'] = 0
+        if 'real_volume' not in res.columns:
+            res['real_volume'] = res['tick_volume']
+
+        # 6. CONVERT KE NUMPY RECORDS
+        fields = ['time', 'open', 'high', 'low', 'close', 'tick_volume', 'spread', 'real_volume']
+        # Pastikan hanya kolom yang ada yang diambil untuk menghindari error
+        available_fields = [f for f in fields if f in res.columns]
+        
+        records = res[available_fields].to_records(index=False)
+        return np.array(records, dtype=records.dtype)
+
+    except Exception as e:
+        print(f"[ERROR] Slicing/Formatting error for {symbol}: {e}")
         return np.array([], dtype=[])
-
-    import pandas as pd
-
-    local_df = df.copy()
-    if 'timestamp' in local_df.columns:
-        ts = pd.to_datetime(local_df['timestamp'], utc=True)
-    elif 'time' in local_df.columns:
-        ts = pd.to_datetime(local_df['time'], utc=True, errors='coerce')
-    else:
-        ts = pd.RangeIndex(start=0, stop=len(local_df), step=1)
-
-    start_ts = pd.Timestamp(date_from)
-    end_ts = pd.Timestamp(date_to)
-    mask = (ts >= start_ts) & (ts <= end_ts)
-    filtered = local_df.loc[mask].copy()
-    if filtered.empty:
-        return np.array([], dtype=[])
-
-    if 'timestamp' in filtered.columns:
-        filtered['time'] = pd.to_datetime(filtered['timestamp'], utc=True).astype('int64') // 10**9
-    elif 'time' not in filtered.columns:
-        filtered['time'] = np.arange(len(filtered), dtype=np.int64)
-
-    for src, dst in [('open', 'open'), ('high', 'high'), ('low', 'low'), ('close', 'close')]:
-        if dst not in filtered.columns:
-            fallback = filtered.get(src.capitalize(), filtered.get('bid', filtered.get('ask', 0.0)))
-            filtered[dst] = fallback
-    if 'tick_volume' not in filtered.columns:
-        filtered['tick_volume'] = filtered.get('volume', 0)
-    if 'spread' not in filtered.columns:
-        spread_points = ((filtered.get('ask', filtered['close']) - filtered.get('bid', filtered['close'])) / max(_ensure_symbol(symbol)['point'], 1e-12)).fillna(0)
-        filtered['spread'] = spread_points.astype(int)
-    if 'real_volume' not in filtered.columns:
-        filtered['real_volume'] = filtered.get('volume', 0)
-
-    fields = ['time', 'open', 'high', 'low', 'close', 'tick_volume', 'spread', 'real_volume']
-    filtered = filtered[fields]
-    records = filtered.to_records(index=False)
-    return np.array(records, dtype=records.dtype)
 
 
 class MetaTrader5:
