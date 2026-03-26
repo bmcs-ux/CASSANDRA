@@ -450,6 +450,38 @@ def _load_parquet_lazy(base_dir, asset_registry, log_stream=None):
 
     return result
 
+
+def _discover_parquet_without_registry(base_dir):
+    """Load parquet partitions directly from disk when registry mapping is unavailable/mismatched."""
+    import glob
+
+    result = {}
+    pattern = os.path.join(
+        base_dir,
+        "asset_class=*",
+        "symbol=*",
+        "timeframe=*",
+        "*.parquet",
+    )
+    for file_path in sorted(glob.glob(pattern)):
+        symbol = file_path.split("symbol=")[-1].split(os.sep)[0].upper()
+        timeframe = file_path.split("timeframe=")[-1].split(os.sep)[0]
+
+        parquet_df = pl.read_parquet(file_path)
+        pdf = pd.DataFrame(parquet_df.to_dict(as_series=False))
+        index_col = '__index__' if '__index__' in pdf.columns else None
+        if index_col is not None:
+            pdf[index_col] = pd.to_datetime(pdf[index_col], utc=True, errors='coerce')
+            pdf = pdf.set_index(index_col).sort_index()
+            pdf.index.name = None if index_col == '__index__' else index_col
+        result.setdefault(timeframe, {})
+        if symbol in result[timeframe]:
+            result[timeframe][symbol] = pd.concat([result[timeframe][symbol], pdf]).sort_index()
+        else:
+            result[timeframe][symbol] = pdf
+
+    return result
+
 # Di dalam dummy_MetaTrader5.py
 
 _GLOBAL_DATA_CACHE = {} # Struktur: { 'M1': { 'GBPUSD': df, ... }, 'H1': { ... } }
@@ -459,6 +491,8 @@ def preload_all_data(base_dir, asset_registry):
     global _GLOBAL_DATA_CACHE
     print(f"[DUMMY MT5] Preloading data from {base_dir}...")
     _GLOBAL_DATA_CACHE = _load_parquet_lazy(base_dir, asset_registry)
+    if not _GLOBAL_DATA_CACHE:
+        _GLOBAL_DATA_CACHE = _discover_parquet_without_registry(base_dir)
     print(f"[DUMMY MT5] Preload complete. Timeframes: {list(_GLOBAL_DATA_CACHE.keys())}")
 
 def copy_rates_range(symbol, timeframe, date_from, date_to):
@@ -471,15 +505,24 @@ def copy_rates_range(symbol, timeframe, date_from, date_to):
     # 2. Cek apakah data tersedia di cache global
     # Kita coba cari dengan nama asli, atau stripping suffix 'm' (GBPUSDm -> GBPUSD)
     df = None
+    normalized_symbol = _normalize_symbol(symbol)
     if tf_str in _GLOBAL_DATA_CACHE:
         # Coba langsung
-        df = _GLOBAL_DATA_CACHE[tf_str].get(symbol)
+        df = _GLOBAL_DATA_CACHE[tf_str].get(normalized_symbol)
         if df is None:
-            # Coba cari tanpa suffix 'm'
-            clean_symbol = symbol.replace('m', '')
+            # Coba cari tanpa suffix broker (contoh: GBPUSDm -> GBPUSD)
+            clean_symbol = normalized_symbol[:-1] if normalized_symbol.endswith('M') else normalized_symbol
             df = _GLOBAL_DATA_CACHE[tf_str].get(clean_symbol)
 
-    # 3. FALLBACK: Jika tidak ada di cache, lakukan pembacaan disk (kode lama kamu)
+    # 3. Jika tidak ada di cache, kembalikan array kosong.
+    # Catatan: preload_all_data() sudah menangani fallback scan direktori.
+    if df is None:
+        hist_df = _historical_buffer.get(normalized_symbol)
+        if hist_df is None and normalized_symbol.endswith('M'):
+            hist_df = _historical_buffer.get(normalized_symbol[:-1])
+        if hist_df is not None:
+            df = hist_df.copy()
+
     if df is None:
         # print(f"[INFO] Cache miss for {symbol} ({tf_str}), attempting disk read...")
         # ... (Gunakan logika pembacaan Polars yang kamu tulis sebelumnya di sini jika ingin tetap mendukung disk read) ...
@@ -490,11 +533,33 @@ def copy_rates_range(symbol, timeframe, date_from, date_to):
     # 4. FILTERING (Sangat Cepat karena di RAM)
     try:
         # Pastikan date_from dan date_to dalam format UTC timestamp
-        start_ts = pd.Timestamp(date_from).tz_localize('UTC') if date_from.tzinfo is None else pd.Timestamp(date_from)
-        end_ts = pd.Timestamp(date_to).tz_localize('UTC') if date_to.tzinfo is None else pd.Timestamp(date_to)
+        start_ts = pd.Timestamp(date_from)
+        end_ts = pd.Timestamp(date_to)
+        if start_ts.tzinfo is None:
+            start_ts = start_ts.tz_localize('UTC')
+        else:
+            start_ts = start_ts.tz_convert('UTC')
+        if end_ts.tzinfo is None:
+            end_ts = end_ts.tz_localize('UTC')
+        else:
+            end_ts = end_ts.tz_convert('UTC')
 
-        # Karena df.index sudah diset sebagai datetime di _load_parquet_lazy
-        filtered_df = df.loc[start_ts:end_ts].copy()
+        if isinstance(df.index, pd.DatetimeIndex):
+            filtered_df = df.loc[start_ts:end_ts].copy()
+        else:
+            working_df = df.copy()
+            if 'timestamp' in working_df.columns:
+                working_df['timestamp'] = pd.to_datetime(working_df['timestamp'], utc=True, errors='coerce')
+                filtered_df = working_df[
+                    (working_df['timestamp'] >= start_ts) & (working_df['timestamp'] <= end_ts)
+                ].copy()
+            elif 'time' in working_df.columns:
+                working_df['time'] = pd.to_datetime(working_df['time'], utc=True, errors='coerce')
+                filtered_df = working_df[
+                    (working_df['time'] >= start_ts) & (working_df['time'] <= end_ts)
+                ].copy()
+            else:
+                filtered_df = working_df.copy()
 
         if filtered_df.empty:
             return np.array([], dtype=[('time', 'i8'), ('open', 'f8'), ('high', 'f8'), ('low', 'f8'), ('close', 'f8'), ('tick_volume', 'i8'), ('spread', 'i4'), ('real_volume', 'i8')])
@@ -506,7 +571,7 @@ def copy_rates_range(symbol, timeframe, date_from, date_to):
         res.rename(columns={time_col: 'time'}, inplace=True)
         
         # Konversi ke Epoch Seconds
-        res['time'] = res['time'].view('int64') // 10**9
+        res['time'] = pd.to_datetime(res['time'], utc=True, errors='coerce').astype('int64') // 10**9
 
         # Pastikan OHLC lowercase
         for col in ['open', 'high', 'low', 'close']:
