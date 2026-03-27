@@ -117,6 +117,29 @@ def _to_timestamp_seconds(value) -> int:
             return int(datetime.now(tz=timezone.utc).timestamp())
 
 
+def _to_utc_datetime_series(values: pd.Series) -> pd.Series:
+    """Convert mixed datetime/epoch representations into UTC-aware datetimes."""
+    series = values if isinstance(values, pd.Series) else pd.Series(values)
+
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return pd.to_datetime(series, utc=True, errors='coerce')
+
+    numeric = pd.to_numeric(series, errors='coerce')
+    if numeric.notna().any():
+        abs_max = float(numeric.dropna().abs().max()) if numeric.notna().any() else 0.0
+        if abs_max >= 1e18:
+            unit = 'ns'
+        elif abs_max >= 1e15:
+            unit = 'us'
+        elif abs_max >= 1e12:
+            unit = 'ms'
+        else:
+            unit = 's'
+        return pd.to_datetime(numeric, unit=unit, utc=True, errors='coerce')
+
+    return pd.to_datetime(series, utc=True, errors='coerce')
+
+
 def _history_row_for_symbol(symbol: str):
     df = _historical_buffer.get(_normalize_symbol(symbol))
     if df is None or len(df) == 0:
@@ -549,12 +572,12 @@ def copy_rates_range(symbol, timeframe, date_from, date_to):
         else:
             working_df = df.copy()
             if 'timestamp' in working_df.columns:
-                working_df['timestamp'] = pd.to_datetime(working_df['timestamp'], utc=True, errors='coerce')
+                working_df['timestamp'] = _to_utc_datetime_series(working_df['timestamp'])
                 filtered_df = working_df[
                     (working_df['timestamp'] >= start_ts) & (working_df['timestamp'] <= end_ts)
                 ].copy()
             elif 'time' in working_df.columns:
-                working_df['time'] = pd.to_datetime(working_df['time'], utc=True, errors='coerce')
+                working_df['time'] = _to_utc_datetime_series(working_df['time'])
                 filtered_df = working_df[
                     (working_df['time'] >= start_ts) & (working_df['time'] <= end_ts)
                 ].copy()
@@ -571,7 +594,9 @@ def copy_rates_range(symbol, timeframe, date_from, date_to):
         res.rename(columns={time_col: 'time'}, inplace=True)
         
         # Konversi ke Epoch Seconds
-        res['time'] = pd.to_datetime(res['time'], utc=True, errors='coerce').astype('int64') // 10**9
+        res['time'] = _to_utc_datetime_series(res['time'])
+        res = res[res['time'].notna()].copy()
+        res['time'] = (res['time'].astype('int64') // 10**9).astype('int64')
 
         # Pastikan OHLC lowercase
         for col in ['open', 'high', 'low', 'close']:
