@@ -47,20 +47,31 @@ TRADE_ENGINE_API_URL = os.getenv("TRADE_ENGINE_API_URL", "http://127.0.0.1:8081/
 # ASSET REGISTRY & PAIRS
 # ---------------------------------------------------------
 ASSET_REGISTRY = {
+    'XAUGBP': {'symbol': 'XAUGBP', 'asset_class': 'forex', 'source': 'exness'},
     'GBPUSD': {'symbol': 'GBPUSD', 'asset_class': 'forex', 'source': 'exness'},
     'AUDUSD': {'symbol': 'AUDUSD', 'asset_class': 'forex', 'source': 'exness'},
     'USDCAD': {'symbol': 'USDCAD', 'asset_class': 'forex', 'source': 'exness'},
     'USDCHF': {'symbol': 'USDCHF', 'asset_class': 'forex', 'source': 'exness'},
     'USDJPY': {'symbol': 'USDJPY', 'asset_class': 'forex', 'source': 'exness'},
     'NZDUSD': {'symbol': 'NZDUSD', 'asset_class': 'forex', 'source': 'exness'},
+    'EURAUD': {'symbol': 'EURAUD', 'asset_class': 'forex', 'source': 'exness'},
     'XAUUSD': {'symbol': 'XAUUSD', 'asset_class': 'commodities', 'source': 'exness'},
     'XAGUSD': {'symbol': 'XAGUSD', 'asset_class': 'commodities', 'source': 'exness'},
-    'US500': {'symbol': 'US500', 'asset_class': 'index', 'source': 'exness'},
-    'DXY': {'symbol': 'DX-Y.NYB', 'asset_class': 'index', 'source': 'yfinance'},
+    'XAUAUD': {'symbol': 'XAUAUD', 'asset_class': 'commodities', 'source': 'exness'},
+    'XNIUSD': {'symbol': 'XNIUSD', 'asset_class': 'commodities', 'source': 'exness'},
+    'XAGAUD': {'symbol': 'XAGAUD', 'asset_class': 'commodities', 'source': 'exness'},
+    'XAUEUR': {'symbol': 'XAUEUR', 'asset_class': 'commodities', 'source': 'exness'},
+    'XAGEUR': {'symbol': 'XAGEUR', 'asset_class': 'commodities', 'source': 'exness'},
+    'BTCUSD': {'symbol': 'BTCUSD', 'asset_class': 'crypto', 'source': 'exness'},
+    'BTCXAU': {'symbol': 'BTCXAU', 'asset_class': 'crypto', 'source': 'exness'},
+    'BTCXAG': {'symbol': 'BTCXAG', 'asset_class': 'crypto', 'source': 'exness'},
+    'US500':  {'symbol': 'US500', 'asset_class': 'index', 'source': 'exness'},
+    'DXY':     {'symbol': 'DX-Y.NYB', 'asset_class': 'index', 'source': 'yfinance'},
     'EFFRVOL': {'symbol': 'EFFRVOL', 'asset_class': 'macro', 'source': 'fred'},
-    'T5YIE': {'symbol': 'T5YIE', 'asset_class': 'macro', 'source': 'fred'},
+    'T5YIE':   {'symbol': 'T5YIE', 'asset_class': 'macro', 'source': 'fred'},
 }
-
+PAIRS = {k: v['symbol'] for k, v in ASSET_REGISTRY.items() if v['source'] != 'fred'}
+ALL_SYMBOLS = list(PAIRS.values())
 # VPS PAIRS mapping
 PAIRS = {
     'GBPUSD': 'GBPUSDm',
@@ -161,11 +172,37 @@ maxlag_varx = 5
 MIN_OBS_FOR_GARCH = 100
 
 VARX_ENDOG_GROUPS = {
-    'FX_Majors': ['GBPUSD_Close_Log_Return', 'AUDUSD_Close_Log_Return', 'USDJPY_Close_Log_Return'],
-    'Commodities': ['XAUUSD_Close_Log_Return', 'XAGUSD_Close_Log_Return'],
-    'Risk': ['US500_Close_Log_Return', 'DXY_Close_Log_Return'],
+    'FX_Majors': [
+        'GBPUSD_Close_Log_Return',
+        'AUDUSD_Close_Log_Return',
+        'USDJPY_Close_Log_Return',
+        'USDCAD_Close_Log_Return',
+        'USDCHF_Close_Log_Return',
+        'NZDUSD_Close_Log_Return'
+    ],
+    'FX_Crosses': [
+        'EURAUD_Close_Log_Return'
+    ],
+    'Commodities': [
+        'XAUUSD_Close_Log_Return',
+        'XAGUSD_Close_Log_Return',
+        'XAUGBP_Close_Log_Return',
+        'XAUAUD_Close_Log_Return',
+        'XAUEUR_Close_Log_Return',
+        'XAGAUD_Close_Log_Return',
+        'XAGEUR_Close_Log_Return',
+        'XNIUSD_Close_Log_Return'
+    ],
+    'Crypto': [
+        'BTCUSD_Close_Log_Return',
+        'BTCXAU_Close_Log_Return',
+        'BTCXAG_Close_Log_Return'
+    ],
+    'Risk_Index': [
+        'US500_Close_Log_Return',
+        'DXY_Close_Log_Return'
+    ]
 }
-
 KALMAN_CONFIG = {
     'n_dim_obs': 1,
     'n_dim_state': 1,
