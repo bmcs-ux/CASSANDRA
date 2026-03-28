@@ -70,21 +70,24 @@ ASSET_REGISTRY = {
     'EFFRVOL': {'symbol': 'EFFRVOL', 'asset_class': 'macro', 'source': 'fred'},
     'T5YIE':   {'symbol': 'T5YIE', 'asset_class': 'macro', 'source': 'fred'},
 }
-PAIRS = {k: v['symbol'] for k, v in ASSET_REGISTRY.items() if v['source'] != 'fred'}
-ALL_SYMBOLS = list(PAIRS.values())
-# VPS PAIRS mapping
+def _derive_vps_mt5_symbol(asset_key, meta):
+    source = meta.get('source')
+    if source == 'fred':
+        return None
+    # Semua instrumen trading pada VPS menggunakan suffix broker `m`.
+    # DXY tetap dipaksa ke simbol terminal VPS (DXYm), bukan simbol yfinance.
+    if asset_key == 'DXY':
+        return 'DXYm'
+    return f"{asset_key}m"
+
+
 PAIRS = {
-    'GBPUSD': 'GBPUSDm',
-    'AUDUSD': 'AUDUSDm',
-    'USDCAD': 'USDCADm',
-    'USDCHF': 'USDCHFm',
-    'USDJPY': 'USDJPYm',
-    'NZDUSD': 'NZDUSDm',
-    'XAUUSD': 'XAUUSDm',
-    'XAGUSD': 'XAGUSDm',
-    'US500': 'US500m',
-    'DXY': 'DXYm',
+    k: sym
+    for k, v in ASSET_REGISTRY.items()
+    for sym in [_derive_vps_mt5_symbol(k, v)]
+    if sym is not None
 }
+ALL_SYMBOLS = list(PAIRS.values())
 
 # Colab PAIRS derivation & list
 COLAB_PAIRS_MAP = {k: v['symbol'] for k, v in ASSET_REGISTRY.items() if v['source'] != 'fred'}
@@ -139,6 +142,8 @@ MTF_INTERVALS = {
 # FRED SPECIFIC CONFIGURATION
 # ---------------------------------------------------------
 FRED_SERIES = {
+    "EFFRVOL": "EFFRVOL",
+    "T5YIE": "T5YIE",
     "S&P 500": "SP500",
     "Index Semi-Annual" :  "BAMLH0A0HYM2SYTW",
     "Markets Corporate Plus" : "BAMLEMRECRPIEMEASYTW",

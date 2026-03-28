@@ -6,6 +6,7 @@ import zipfile
 import pandas as pd
 import requests
 import warnings
+import polars as pl
 
 warnings.filterwarnings("ignore")
 
@@ -113,18 +114,20 @@ def _resolve_local_csv_path(base_path, base_interval):
 
 def _read_local_base_data(log_stream, file_path, pairs, lookback_days):
     base_dfs = {}
-    df_all = pd.read_csv(file_path, index_col=0, parse_dates=True)
+    df_pl = pl.read_csv(str(file_path), try_parse_dates=False, infer_schema_length=2000)
+    all_cols = df_pl.columns
+    if not all_cols:
+        log_stream.write(f"[WARN] CSV lokal {file_path} kosong.\n")
+        return base_dfs
+
+    index_col = all_cols[0]
+    df_all = pd.DataFrame(df_pl.rename({index_col: "__index__"}).to_dict(as_series=False))
+    df_all["__index__"] = pd.to_datetime(df_all["__index__"], errors="coerce", utc=True)
+    df_all = df_all.dropna(subset=["__index__"]).set_index("__index__").sort_index()
 
     if df_all.empty:
         log_stream.write(f"[WARN] CSV lokal {file_path} kosong.\n")
         return base_dfs
-
-    if not isinstance(df_all.index, pd.DatetimeIndex):
-        df_all.index = pd.to_datetime(df_all.index, errors='coerce', utc=True)
-    if df_all.index.tz is None:
-        df_all.index = df_all.index.tz_localize('UTC')
-    else:
-        df_all.index = df_all.index.tz_convert('UTC')
 
     for pair_name in pairs.keys():
         cols = [c for c in df_all.columns if c.lower().startswith(f"{pair_name.lower()}_")]

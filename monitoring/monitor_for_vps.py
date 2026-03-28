@@ -622,6 +622,26 @@ def preprocess_high_frequency_data(log_stream, hf_raw_data_dfs, apply_log_return
     hf_log_returns_dict = combine_log_returns_func(log_stream, hf_log_returns_raw, return_type='dict')
     hf_combined_log_returns_df = combine_log_returns_func(log_stream, hf_log_returns_raw, return_type='df')
 
+    # Proteksi RAM: stationarity test pada HF sangat mahal untuk ratusan ribu bar.
+    # Batasi observasi terbaru agar proses VPS tidak terhenti karena OOM/interupsi paksa.
+    max_stationarity_rows = int(getattr(parameter, "HF_MAX_STATIONARITY_ROWS", 20000))
+    if max_stationarity_rows > 0:
+        trimmed_dict = {}
+        for pair_name, pair_df in (hf_log_returns_dict or {}).items():
+            if isinstance(pair_df, pd.DataFrame) and len(pair_df) > max_stationarity_rows:
+                trimmed_dict[pair_name] = pair_df.tail(max_stationarity_rows).copy()
+                log_stream.write(
+                    f"  [INFO] Trim stationarity input {pair_name}: {len(pair_df)} -> {len(trimmed_dict[pair_name])} rows.\n"
+                )
+            else:
+                trimmed_dict[pair_name] = pair_df
+        hf_log_returns_dict = trimmed_dict
+
+    if isinstance(hf_combined_log_returns_df, pd.DataFrame) and not hf_combined_log_returns_df.empty:
+        float_cols = hf_combined_log_returns_df.select_dtypes(include=['float64']).columns
+        if len(float_cols) > 0:
+            hf_combined_log_returns_df[float_cols] = hf_combined_log_returns_df[float_cols].astype('float32')
+
     log_stream.write(f"\n[INFO] Memeriksa stasioneritas data log-return high-frequency...\n")
     hf_stationarity_results, _ = test_and_stationarize_data_func(log_stream, hf_log_returns_dict, {}, alpha)
 
