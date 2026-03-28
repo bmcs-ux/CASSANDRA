@@ -1046,86 +1046,322 @@ def run_single_monitoring_cycle(
     log_stream=sys.stdout,
     is_backtest=False,
     interval_seconds: Optional[float] = None,
+    confidence_level: float = 0.95,
+    monitoring_context: Optional[Dict[str, Any]] = None,
 ):
-    """Run one monitoring cycle to support both live mode and historical replay."""
+    """Run one monitoring cycle.
+
+    - Backtest/default mode: lightweight heuristic cycle (safe fallback).
+    - Live mode with ``monitoring_context``: full RLS + risk-gating cycle.
+    """
     cycle_start_time = time.time()
+    monitoring_context = monitoring_context or {}
+
+    # Fallback path for backtest and minimal contexts.
+    if not monitoring_context:
+        hf_raw_data_dfs = fetch_high_frequency_data(
+            log_stream,
+            mt5_adapter_instance,
+            MT5_TIMEFRAME_MAP,
+            parameter.PAIRS,
+            parameter.HF_LOOKBACK_DAYS,
+            parameter.HF_BASE_INTERVAL,
+        )
+
+        hf_log_returns_dict, hf_combined_log_returns_df, _, _ = preprocess_high_frequency_data(
+            log_stream,
+            hf_raw_data_dfs,
+            _apply_log_return_to_price,
+            _combine_log_returns,
+            _test_and_stationarize_data,
+            prepare_high_frequency_exogenous_data,
+            {},
+            parameter.alpha,
+        )
+
+        latest_hf_actual_prices = {}
+        trade_signals = {}
+
+        for pair_name, df in hf_raw_data_dfs.items():
+            if df.empty or "Close" not in df.columns:
+                continue
+            latest_hf_actual_prices[pair_name] = float(df["Close"].iloc[-1])
+
+            signal = "HOLD"
+            reason = "Insufficient data"
+            if (
+                pair_name in hf_log_returns_dict
+                and not hf_log_returns_dict[pair_name].empty
+                and len(hf_log_returns_dict[pair_name]) >= 2
+            ):
+                recent_ret = float(hf_log_returns_dict[pair_name].iloc[-1, 0])
+                signal = "BUY" if recent_ret > 0 else "SELL" if recent_ret < 0 else "HOLD"
+                reason = f"Simple replay heuristic from latest return={recent_ret:+.6e}"
+
+            trade_signals[pair_name] = {
+                "signal": signal,
+                "entry_price": latest_hf_actual_prices[pair_name],
+                "stop_loss": None,
+                "take_profit": None,
+                "position_units": 0,
+                "reason": reason,
+            }
+
+            if signal in ("BUY", "SELL"):
+                signal_payload = {
+                    "signal_id": f"{pair_name.replace('/', '')}_{cycle_count}",
+                    "action": signal,
+                    "symbol": pair_name,
+                    "entry_price": latest_hf_actual_prices[pair_name],
+                    "pipeline_run_id": pipeline_run_id_for_monitor,
+                }
+                if not is_backtest:
+                    send_signal_to_trade_engine(signal_payload, log_stream)
+                else:
+                    log_stream.write(f"[SIM] Signal generated: {signal_payload['action']} for {pair_name}\n")
+
+        cycle_duration = float(time.time() - cycle_start_time)
+        if interval_seconds is not None and not is_backtest:
+            time_to_sleep = interval_seconds - cycle_duration
+            if time_to_sleep > 0:
+                time.sleep(time_to_sleep)
+
+        return {
+            "cycle_number": cycle_count,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "latest_actual_prices": latest_hf_actual_prices,
+            "trade_signals": trade_signals,
+            "rls_metrics": {},
+            "global_confidence": 0.0,
+            "pipeline_run_id": pipeline_run_id_for_monitor,
+            "cycle_duration_seconds": cycle_duration,
+            "is_backtest": bool(is_backtest),
+        }
+
+    # Advanced live-cycle path (integrated from legacy loop block).
+    skip_individual_trade_decisions = False
+    current_mt5_timeframe_map = monitoring_context["current_mt5_timeframe_map"]
+    final_stationarized_fred_data = monitoring_context.get("final_stationarized_fred_data", {})
+    rls_estimators = monitoring_context["rls_estimators"]
+    dcc_model_registry = monitoring_context.get("dcc_model_registry", {})
+    dcc_metrics_cache = monitoring_context.get("dcc_metrics_cache", {})
+    dcc_timeframe_last_close_map = monitoring_context.get("dcc_timeframe_last_close_map", {})
+    timeframe_last_close_map = monitoring_context.get("timeframe_last_close_map", {})
+    expected_return_state = monitoring_context.setdefault("expected_return_state", {})
+    PAIR_TO_RLS_GROUP = monitoring_context["pair_to_rls_group"]
+    news_manager_instance = monitoring_context["news_manager_instance"]
+
+    log_stream.write(f"\n--- Monitoring Cycle {cycle_count} (Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')})---\n")
+    log_stream.flush()
 
     hf_raw_data_dfs = fetch_high_frequency_data(
         log_stream,
         mt5_adapter_instance,
-        MT5_TIMEFRAME_MAP,
+        current_mt5_timeframe_map,
         parameter.PAIRS,
         parameter.HF_LOOKBACK_DAYS,
         parameter.HF_BASE_INTERVAL,
     )
 
-    hf_log_returns_dict, hf_combined_log_returns_df, _, _ = preprocess_high_frequency_data(
+    hf_log_returns_dict, hf_combined_log_returns_df, _, hf_fred_exog_aligned = preprocess_high_frequency_data(
         log_stream,
         hf_raw_data_dfs,
         _apply_log_return_to_price,
         _combine_log_returns,
         _test_and_stationarize_data,
         prepare_high_frequency_exogenous_data,
-        {},
+        final_stationarized_fred_data,
         parameter.alpha,
     )
 
-    latest_hf_actual_prices = {}
-    trade_signals = {}
-
-    for pair_name, df in hf_raw_data_dfs.items():
-        if df.empty or "Close" not in df.columns:
-            continue
-        latest_hf_actual_prices[pair_name] = float(df["Close"].iloc[-1])
-
-        signal = "HOLD"
-        reason = "Insufficient data"
-        if (
-            pair_name in hf_log_returns_dict
-            and not hf_log_returns_dict[pair_name].empty
-            and len(hf_log_returns_dict[pair_name]) >= 2
-        ):
-            recent_ret = float(hf_log_returns_dict[pair_name].iloc[-1, 0])
-            signal = "BUY" if recent_ret > 0 else "SELL" if recent_ret < 0 else "HOLD"
-            reason = f"Simple replay heuristic from latest return={recent_ret:+.6e}"
-
-        trade_signals[pair_name] = {
-            "signal": signal,
-            "entry_price": latest_hf_actual_prices[pair_name],
-            "stop_loss": None,
-            "take_profit": None,
-            "position_units": 0,
-            "reason": reason,
+    if hf_combined_log_returns_df.empty or len(hf_combined_log_returns_df) <= parameter.maxlag_test:
+        log_stream.write("  [WARN] Not enough valid high-frequency log returns for RLS. Skipping this cycle.\n")
+        log_stream.flush()
+        return {
+            "cycle_number": cycle_count,
+            "timestamp": datetime.now().isoformat(),
+            "latest_actual_prices": {},
+            "deviation_results": {},
+            "rls_forecast": {},
+            "rls_health": {},
+            "trade_signals": {},
+            "parameter_deviations": {},
+            "pipeline_run_id": pipeline_run_id_for_monitor,
+            "cycle_log": "Not enough data for RLS.",
+            "is_backtest": bool(is_backtest),
         }
 
-        if signal in ("BUY", "SELL"):
-            signal_payload = {
-                "signal_id": f"{pair_name.replace('/', '')}_{cycle_count}",
-                "action": signal,
-                "symbol": pair_name,
+    latest_hf_actual_prices, latest_hf_atrs = {}, {}
+    for pair_name, df in hf_raw_data_dfs.items():
+        if not df.empty and "Close" in df.columns:
+            latest_hf_actual_prices[pair_name] = float(df["Close"].iloc[-1])
+            atr_series = calculate_atr(log_stream, df)
+            if not atr_series.empty:
+                latest_hf_atrs[pair_name] = float(atr_series.iloc[-1])
+
+    # Light integration: keep risk gates & signal generation with existing helpers.
+    rls_forecasts, rls_metrics, parameter_deviations = {}, {}, {}
+    confidence_per_group, maturity_per_group = {}, {}
+    dcc_group_metrics, kalman_metrics, consensus_metrics = {}, {}, {}
+    mean_reversion_candidates, trade_signals = {}, {}
+
+    PAIR_REALIZED_STD_CACHE.clear()
+    volatility_window = int(getattr(parameter, "RLS_VOLATILITY_WINDOW", 96))
+
+    for estimator_key, estimator_data in rls_estimators.items():
+        updated_theta = estimator_data.get("theta")
+        baseline_theta_ref = estimator_data.get("baseline_theta_ref")
+        group_name = estimator_data.get("group_name", estimator_key)
+        timeframe_name = estimator_data.get("timeframe", "H1")
+        estimator_label = f"{timeframe_name}::{group_name}"
+
+        if updated_theta is None or baseline_theta_ref is None:
+            continue
+        deviation_norm = float(np.linalg.norm(updated_theta - baseline_theta_ref))
+        parameter_deviations[estimator_label] = deviation_norm
+        confidence = float(np.clip(1.0 / (1.0 + deviation_norm), 0.0, 1.0))
+        maturity = float(np.clip(estimator_data.get("rls_update_count", 0) / max(parameter.RLS_MIN_UPDATES_FOR_CONFIDENCE, 1), 0.0, 1.0))
+        confidence_per_group[estimator_label] = confidence
+        maturity_per_group[estimator_label] = maturity
+        rls_metrics[estimator_label] = {
+            "confidence": confidence,
+            "maturity": maturity,
+            "deviation": deviation_norm,
+            "pred_var": float(parameter.RLS_INITIAL_P_DIAG),
+        }
+        if timeframe_name == "H1":
+            parameter_deviations[group_name] = deviation_norm
+            confidence_per_group[group_name] = confidence
+            maturity_per_group[group_name] = maturity
+
+    global_rls_confidence, rls_param_deviation_score = _summarize_rls_global_metrics(
+        confidence_map=confidence_per_group,
+        maturity_map=maturity_per_group,
+        deviation_map=parameter_deviations,
+    )
+
+    if global_rls_confidence < parameter.RLS_CONFIDENCE_ENTRY_THRESHOLD:
+        skip_individual_trade_decisions = parameter._RLS_CONFIDENCE
+    if rls_param_deviation_score > parameter.RLS_DEVIATION_CLOSE_ALL_THRESHOLD:
+        if not is_backtest:
+            send_signal_to_trade_engine({"signal_id": f"CLOSE_ALL_RISK_{pipeline_run_id_for_monitor}_{cycle_count}", "action": "CLOSE_ALL"}, log_stream)
+        skip_individual_trade_decisions = parameter._RLS_DEVIATION_THRESHOLD
+
+    news_status = news_manager_instance.get_news_status()
+    if news_status.get("is_restricted"):
+        skip_individual_trade_decisions = parameter.NEWS
+
+    latest_row = hf_combined_log_returns_df.iloc[[-1]]
+    exog_row = hf_fred_exog_aligned.iloc[[-1]] if not hf_fred_exog_aligned.empty else pd.DataFrame()
+
+    for pair_name in latest_hf_actual_prices:
+        if skip_individual_trade_decisions:
+            trade_signals[pair_name] = {
+                "signal": "HOLD",
                 "entry_price": latest_hf_actual_prices[pair_name],
-                "pipeline_run_id": pipeline_run_id_for_monitor,
+                "stop_loss": np.nan,
+                "take_profit": np.nan,
+                "position_units": 0,
+                "rr_ratio": np.nan,
+                "snr": np.nan,
+                "reason": "Skipped by safety filter",
             }
-            if not is_backtest:
-                send_signal_to_trade_engine(signal_payload, log_stream)
-            else:
-                log_stream.write(f"[SIM] Signal generated: {signal_payload['action']} for {pair_name}\n")
+            continue
+
+        raw_ret = infer_rls_expected_return(
+            log_stream=log_stream,
+            pair_name=pair_name,
+            rls_estimators=rls_estimators,
+            current_hf_combined_log_returns_df=latest_row,
+            latest_hf_fred_exog_df=exog_row,
+            lagged_hf_log_returns_df=pd.DataFrame(),
+        )
+        if raw_ret is None or pair_name not in latest_hf_atrs:
+            trade_signals[pair_name] = {"signal": "HOLD", "reason": "RLS unavailable or ATR missing"}
+            continue
+
+        prev_expected_return = expected_return_state.get(pair_name, float(raw_ret))
+        rls_expected_return = _stabilize_expected_return(float(raw_ret), prev_expected_return)
+        expected_return_state[pair_name] = float(rls_expected_return)
+
+        predicted_mean = latest_hf_actual_prices[pair_name] * np.exp(rls_expected_return)
+        rls_forecasts[pair_name] = {
+            "rls_predicted_price": float(predicted_mean),
+            "rls_expected_return_pct": float(rls_expected_return * 100),
+        }
+
+        account_info = mt5_adapter_instance.account_info()
+        current_equity = account_info.equity if account_info is not None else parameter.EQUITY
+        forecast_std = _estimate_forecast_std(pair_name, latest_hf_actual_prices[pair_name], confidence_level, kalman_metrics)
+        forecast_std_return = forecast_std / max(latest_hf_actual_prices[pair_name], 1e-12)
+        signal = decide_trade(
+            log_stream=log_stream,
+            pair_name=pair_name,
+            latest_actual_price=latest_hf_actual_prices[pair_name],
+            expected_return=rls_expected_return,
+            forecast_std=forecast_std,
+            forecast_std_return=forecast_std_return,
+            hf_atr=latest_hf_atrs[pair_name],
+            equity=current_equity,
+            risk_pct=parameter.RISK_PER_TRADE_PCT,
+            k_atr_stop=parameter.K_ATR_STOP,
+            k_model_stop=parameter.K_MODEL_STOP,
+            snr_threshold=parameter.SNR_THRESHOLD,
+            rls_param_deviation_score=parameter_deviations.get(PAIR_TO_RLS_GROUP.get(pair_name), 0.0),
+            rls_deviation_threshold=parameter.RLS_DEVIATION_THRESHOLD,
+            tp_rr_ratio=parameter.TP_RR_RATIO,
+            kalman_velocity=0.0,
+            kalman_innovation_zscore=0.0,
+            kalman_trend="FLAT",
+        )
+
+        trade_signals[pair_name] = signal
+        if signal.get("signal") in ("BUY", "SELL") and not is_backtest:
+            send_signal_to_trade_engine(
+                {
+                    "signal_id": f"{pair_name.replace('/', '')}",
+                    "action": signal["signal"],
+                    "symbol": pair_name,
+                    "entry_price": signal.get("entry_price"),
+                    "stop_loss": signal.get("stop_loss"),
+                    "take_profit": signal.get("take_profit"),
+                    "position_units": signal.get("position_units", 0),
+                    "snr": signal.get("snr"),
+                    "pipeline_run_id": pipeline_run_id_for_monitor,
+                },
+                log_stream,
+            )
+
+    deviation_results = detect_price_deviation(
+        log_stream,
+        latest_hf_actual_prices,
+        rls_forecasts,
+        kalman_metrics,
+        confidence_level,
+    )
 
     cycle_duration = float(time.time() - cycle_start_time)
-    if interval_seconds is not None and not is_backtest:
-        time_to_sleep = interval_seconds - cycle_duration
-        if time_to_sleep > 0:
-            time.sleep(time_to_sleep)
-
     return {
         "cycle_number": cycle_count,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "latest_actual_prices": latest_hf_actual_prices,
-        "trade_signals": trade_signals,
-        "rls_metrics": {},
-        "global_confidence": 0.0,
+        "timestamp": datetime.now().isoformat(),
+        "latest_actual_prices": convert_numpy_floats(latest_hf_actual_prices),
+        "rls_health": convert_numpy_floats(rls_metrics),
+        "deviation_results": convert_numpy_floats(deviation_results),
+        "rls_forecast": format_for_dashboard(rls_forecasts, latest_hf_actual_prices),
+        "trade_signals": convert_numpy_floats(trade_signals),
+        "parameter_deviations": convert_numpy_floats(parameter_deviations),
+        "dcc_metrics": convert_numpy_floats(dcc_group_metrics),
+        "kalman_metrics": convert_numpy_floats(kalman_metrics),
+        "consensus_metrics": convert_numpy_floats(consensus_metrics),
+        "mean_reversion_candidates": convert_numpy_floats(mean_reversion_candidates),
         "pipeline_run_id": pipeline_run_id_for_monitor,
+        "global_metrics": {
+            "global_confidence": float(global_rls_confidence),
+            "global_deviation": float(rls_param_deviation_score),
+            "cycle_duration": cycle_duration,
+        },
         "cycle_duration_seconds": cycle_duration,
+        "news_status": convert_numpy_floats(news_status),
         "is_backtest": bool(is_backtest),
     }
 
@@ -1382,6 +1618,19 @@ def start_realtime_monitoring(
                 log_stream=log_stream_main,
                 is_backtest=False,
                 interval_seconds=interval_seconds,
+                confidence_level=confidence_level,
+                monitoring_context={
+                    "current_mt5_timeframe_map": current_mt5_timeframe_map,
+                    "final_stationarized_fred_data": final_stationarized_fred_data,
+                    "rls_estimators": rls_estimators,
+                    "dcc_model_registry": dcc_model_registry,
+                    "dcc_metrics_cache": dcc_metrics_cache,
+                    "dcc_timeframe_last_close_map": dcc_timeframe_last_close_map,
+                    "timeframe_last_close_map": timeframe_last_close_map,
+                    "expected_return_state": expected_return_state,
+                    "pair_to_rls_group": PAIR_TO_RLS_GROUP,
+                    "news_manager_instance": news_manager_instance,
+                },
             )
 
             all_monitoring_results.append(current_cycle_results_summary)
