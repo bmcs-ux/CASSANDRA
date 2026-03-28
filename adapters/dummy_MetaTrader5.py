@@ -588,15 +588,43 @@ def copy_rates_range(symbol, timeframe, date_from, date_to):
             return np.array([], dtype=[('time', 'i8'), ('open', 'f8'), ('high', 'f8'), ('low', 'f8'), ('close', 'f8'), ('tick_volume', 'i8'), ('spread', 'i4'), ('real_volume', 'i8')])
 
         # 5. STANDARISASI FORMAT MT5
-        res = filtered_df.reset_index()
-        # Cari kolom waktu (bisa bernama 'time', 'timestamp', atau hasil reset_index '__index__')
-        time_col = res.columns[0] 
-        res.rename(columns={time_col: 'time'}, inplace=True)
+        if 'time' in filtered_df.columns:
+            res = filtered_df.copy()
+        elif 'timestamp' in filtered_df.columns:
+            res = filtered_df.rename(columns={'timestamp': 'time'}).copy()
+        else:
+            res = filtered_df.reset_index()
+        # Prioritaskan kolom waktu yang benar agar tidak salah mengambil RangeIndex
+        if 'time' in res.columns and res['time'].notna().any():
+            time_col = 'time'
+        elif 'timestamp' in res.columns and res['timestamp'].notna().any():
+            time_col = 'timestamp'
+        elif '__index__' in res.columns:
+            time_col = '__index__'
+        elif 'index' in res.columns:
+            time_col = 'index'
+        else:
+            time_col = res.columns[0]
+        if time_col != 'time':
+            res.rename(columns={time_col: 'time'}, inplace=True)
         
         # Konversi ke Epoch Seconds
         res['time'] = _to_utc_datetime_series(res['time'])
         res = res[res['time'].notna()].copy()
-        res['time'] = (res['time'].astype('int64') // 10**9).astype('int64')
+        epoch_values = (
+            res['time']
+            .dt.tz_convert('UTC')
+            .dt.tz_localize(None)
+            .astype('int64')
+        )
+        max_abs_epoch = int(epoch_values.abs().max()) if len(epoch_values) else 0
+        if max_abs_epoch >= 10**17:      # nanoseconds
+            epoch_values = epoch_values // 10**9
+        elif max_abs_epoch >= 10**14:    # microseconds
+            epoch_values = epoch_values // 10**6
+        elif max_abs_epoch >= 10**11:    # milliseconds
+            epoch_values = epoch_values // 10**3
+        res['time'] = epoch_values.astype('int64')
 
         # Pastikan OHLC lowercase
         for col in ['open', 'high', 'low', 'close']:

@@ -3,6 +3,7 @@
 # ↔ Gabungkan semua log return harga ke dalam satu DataFrame ATAU Dictionary of DataFrames (Module)
 # ============================================================
 import pandas as pd
+import polars as pl
 
 def combine_log_returns(log_stream, log_return_dfs, return_type='dict'):
     """
@@ -31,8 +32,7 @@ def combine_log_returns(log_stream, log_return_dfs, return_type='dict'):
 
     # === Mode: Return sebagai DataFrame gabungan ===
     if return_type == 'df':
-        combined_df = pd.DataFrame()
-        first_pair = True
+        frames = []
 
         for pair_name, df_log_return in log_return_dfs.items():
             if df_log_return is not None and not df_log_return.empty:
@@ -45,25 +45,33 @@ def combine_log_returns(log_stream, log_return_dfs, return_type='dict'):
                     continue
 
                 # Buat nama kolom gabungan seperti EUR/USD_Close_Log_Return
-                df_renamed = df_log_return[available_cols].rename(
+                index_name = "__index_ns__"
+                frame = df_log_return[available_cols].copy().rename(
                     columns={col: f"{pair_name}_{col}" for col in available_cols}
                 )
-
-                if first_pair:
-                    combined_df = df_renamed.copy()
-                    first_pair = False
-                else:
-                    combined_df = combined_df.merge(
-                        df_renamed,
-                        left_index=True,
-                        right_index=True,
-                        how='outer'
-                    )
+                frame[index_name] = pd.to_datetime(df_log_return.index, utc=True, errors='coerce').view('int64')
+                frame = frame.dropna(subset=[index_name])
+                frames.append(pl.DataFrame(frame.to_dict(orient='list')))
             else:
                 log_stream.write(f"  [WARN] Log return data tidak valid atau kosong untuk {pair_name}. Dilewati.\n")
 
-        # Bersihkan hasil
-        combined_df = combined_df.ffill().dropna(how='all')
+        if not frames:
+            return pd.DataFrame()
+
+        combined_pl = frames[0]
+        join_key = "__index_ns__"
+        for next_df in frames[1:]:
+            combined_pl = combined_pl.join(next_df, on=join_key, how='full', coalesce=True)
+
+        combined_df = (
+            pd.DataFrame(combined_pl.sort(join_key).to_dict(as_series=False))
+            .set_index(join_key)
+            .sort_index()
+            .ffill()
+            .dropna(how='all')
+        )
+        combined_df.index = pd.to_datetime(combined_df.index, utc=True, errors='coerce')
+        combined_df = combined_df[~combined_df.index.isna()]
         log_stream.write(f"  [OK] Penggabungan selesai (DataFrame). Shape: {combined_df.shape}\n")
         return combined_df
 
