@@ -470,6 +470,11 @@ def _load_parquet_lazy(base_dir, asset_registry, log_stream=None):
             result.setdefault(tf, {})[pair] = pdf
             if log_stream is not None:
                 _debug_log(log_stream, f"[DEBUG] Parquet loaded for {pair} [{tf}] with shape {pdf.shape}")
+                if isinstance(pdf.index, pd.DatetimeIndex) and len(pdf.index) > 0:
+                    _debug_log(
+                        log_stream,
+                        f"[DEBUG] Index range for {pair} [{tf}]: min={pdf.index.min()} max={pdf.index.max()}",
+                    )
 
     return result
 
@@ -539,12 +544,14 @@ def copy_rates_range(symbol, timeframe, date_from, date_to):
 
     # 3. Jika tidak ada di cache, kembalikan array kosong.
     # Catatan: preload_all_data() sudah menangani fallback scan direktori.
+    source_is_historical_buffer = False
     if df is None:
         hist_df = _historical_buffer.get(normalized_symbol)
         if hist_df is None and normalized_symbol.endswith('M'):
             hist_df = _historical_buffer.get(normalized_symbol[:-1])
         if hist_df is not None:
             df = hist_df.copy()
+            source_is_historical_buffer = True
 
     if df is None:
         # print(f"[INFO] Cache miss for {symbol} ({tf_str}), attempting disk read...")
@@ -583,6 +590,20 @@ def copy_rates_range(symbol, timeframe, date_from, date_to):
                 ].copy()
             else:
                 filtered_df = working_df.copy()
+
+        # Filter ulang secara eksplisit untuk sumber _historical_buffer
+        # agar range date_from/date_to selalu dihormati sebelum konversi records.
+        if source_is_historical_buffer and not filtered_df.empty:
+            if 'timestamp' in filtered_df.columns:
+                filtered_df['timestamp'] = _to_utc_datetime_series(filtered_df['timestamp'])
+                filtered_df = filtered_df[
+                    (filtered_df['timestamp'] >= start_ts) & (filtered_df['timestamp'] <= end_ts)
+                ].copy()
+            elif 'time' in filtered_df.columns:
+                filtered_df['time'] = _to_utc_datetime_series(filtered_df['time'])
+                filtered_df = filtered_df[
+                    (filtered_df['time'] >= start_ts) & (filtered_df['time'] <= end_ts)
+                ].copy()
 
         if filtered_df.empty:
             return np.array([], dtype=[('time', 'i8'), ('open', 'f8'), ('high', 'f8'), ('low', 'f8'), ('close', 'f8'), ('tick_volume', 'i8'), ('spread', 'i4'), ('real_volume', 'i8')])

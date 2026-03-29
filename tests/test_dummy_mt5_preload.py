@@ -11,6 +11,7 @@ import adapters.dummy_MetaTrader5 as dummy_mt5
 class DummyMT5PreloadTests(unittest.TestCase):
     def setUp(self):
         dummy_mt5._GLOBAL_DATA_CACHE = {}
+        dummy_mt5._historical_buffer = {}
 
     def test_preload_falls_back_to_directory_discovery_when_registry_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -117,6 +118,32 @@ class DummyMT5PreloadTests(unittest.TestCase):
 
         self.assertEqual(len(rates), 2)
         self.assertGreater(rates["time"][-1], 1700000000)
+
+    def test_copy_rates_range_historical_buffer_is_limited_to_requested_window(self):
+        start = pd.Timestamp("2026-03-01T00:00:00Z")
+        all_times = list(pd.date_range("1988-01-01T00:00:00Z", periods=10, freq="1min")) + list(
+            pd.date_range(start, periods=3, freq="1min")
+        )
+        dummy_mt5._historical_buffer["XAUUSD"] = pd.DataFrame(
+            {
+                "time": all_times,
+                "open": [100.0 + i for i in range(len(all_times))],
+                "high": [101.0 + i for i in range(len(all_times))],
+                "low": [99.0 + i for i in range(len(all_times))],
+                "close": [100.5 + i for i in range(len(all_times))],
+                "tick_volume": [50 + i for i in range(len(all_times))],
+            }
+        )
+
+        rates = dummy_mt5.copy_rates_range(
+            "XAUUSD",
+            dummy_mt5.TIMEFRAME_M1,
+            start.isoformat(),
+            (start + pd.Timedelta(minutes=2)).isoformat(),
+        )
+
+        self.assertEqual(len(rates), 3)
+        self.assertTrue((rates["time"] >= int(start.timestamp())).all())
 
 
 if __name__ == "__main__":
