@@ -413,6 +413,24 @@ def _load_parquet_lazy(base_dir, asset_registry, log_stream=None):
                 how='vertical_relaxed',
             )
             pdf = pd.DataFrame(parquet_df.to_dict(as_series=False))
+
+
+            # Memastikan kolom 'datetime' ada dan digunakan sebagai index
+            if 'Timestamp' in pdf.columns:
+                pdf['Timestamp'] = pd.to_datetime(pdf['Timestamp'])
+                pdf = pdf.set_index('Timestamp').sort_index()
+                _debug_log(log_stream, f"[DEBUG] Indeks 'datetime' berhasil diatur untuk {pair}. Shape: {pdf.shape}")
+            else:
+                _debug_log(log_stream, f"[ERROR] Kolom 'datetime' tidak ditemukan di data {pair}. Ini akan menyebabkan masalah indeks.")
+                # Jika kolom 'datetime' tidak ditemukan, coba gunakan indeks yang ada dan konversi jika memungkinkan
+                # Atau, jika tidak ada cara untuk membuat DatetimeIndex, lewati aset ini.
+                try:
+                    pdf.index = pd.to_datetime(pdf.index)
+                    _debug_log(log_stream, f"[WARN] Menggunakan indeks yang ada sebagai datetime untuk {pair}. Shape: {pdf.shape}")
+                except Exception as e_idx:
+                    _debug_log(log_stream, f"[ERROR] Gagal mengkonversi indeks ke datetime untuk {pair}: {e_idx}. Aset ini akan dilewati.")
+                    continue
+
             index_col = '__index__' if '__index__' in pdf.columns else None
             if index_col is not None:
                 pdf[index_col] = pd.to_datetime(pdf[index_col], utc=True, errors='coerce')

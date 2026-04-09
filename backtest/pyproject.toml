@@ -1,0 +1,24 @@
+[build-system]
+requires      = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name            = "backtest_rs"
+version         = "0.1.0"
+description     = "High-performance intrabar backtest engine (Rust/Polars core)"
+requires-python = ">=3.8"
+dependencies    = ["polars>=0.19"]
+
+[project.optional-dependencies]
+dev  = ["maturin", "polars", "pytest", "python-dateutil"]
+full = ["polars", "pyarrow", "pandas", "python-dateutil"]
+
+[tool.maturin]
+# Compile Rust → Python extension wheel
+features         = ["pyo3/extension-module"]
+module-name      = "backtest_rs"
+python-source    = "python"
+manifest-path    = "Cargo.toml"
+
+# Release build flags (already in Cargo.toml [profile.release])
+# maturin passes --release automatically for `maturin build`

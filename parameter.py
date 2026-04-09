@@ -13,7 +13,7 @@ if "/home/bimachasin86/VARX_REGRESION" in ROOT_DIR: # VPS Specific logic preserv
 VPS_PARAM_DIR = ROOT_DIR
 VPS_DATA_DIR = ROOT_DIR
 VPS_SYNC_PATH = os.path.join(ROOT_DIR, 'vps_sync')
-BASE_DATA_DIR = '/content/drive/MyDrive/books/CASSANDRA/base_data'
+BASE_DATA_DIR = '/content/drive/MyDrive/books/CASSANDRA/data_base'
 PKL_CACHE_DIR = '/content/.pkl'
 DEBUG_MODE = True
 
@@ -58,7 +58,7 @@ ASSET_REGISTRY = {
     'XAUUSD': {'symbol': 'XAUUSD', 'asset_class': 'commodities', 'source': 'exness'},
     'XAGUSD': {'symbol': 'XAGUSD', 'asset_class': 'commodities', 'source': 'exness'},
     'XAUAUD': {'symbol': 'XAUAUD', 'asset_class': 'commodities', 'source': 'exness'},
-    'XNIUSD': {'symbol': 'XNIUSD', 'asset_class': 'commodities', 'source': 'exness'},
+    #'XNIUSD': {'symbol': 'XNIUSD', 'asset_class': 'commodities', 'source': 'exness'},
     'XAGAUD': {'symbol': 'XAGAUD', 'asset_class': 'commodities', 'source': 'exness'},
     'XAUEUR': {'symbol': 'XAUEUR', 'asset_class': 'commodities', 'source': 'exness'},
     'XAGEUR': {'symbol': 'XAGEUR', 'asset_class': 'commodities', 'source': 'exness'},
@@ -94,17 +94,17 @@ COLAB_PAIRS_MAP = {k: v['symbol'] for k, v in ASSET_REGISTRY.items() if v['sourc
 ALL_SYMBOLS = list(COLAB_PAIRS_MAP.values())
 
 IMPUTATION_SPECIAL_ASSETS = [
-    {"func_pair_name": "XAU/GBP", "url_segment": "XAUGBP"},
-    {"func_pair_name": "XAU/AUD", "url_segment": "XAUAUD"},
-    {"func_pair_name": "GBP/USD", "url_segment": "GBPUSD"},
-    {"func_pair_name": "XNI/USD", "url_segment": "XNIUSD"},
-    {"func_pair_name": "XAG/AUD", "url_segment": "XAGAUD"},
-    {"func_pair_name": "XAU/EUR", "url_segment": "XAUEUR"},
-    {"func_pair_name": "XAG/EUR", "url_segment": "XAGEUR"},
-    {"func_pair_name": "BTC/USD", "url_segment": "BTCUSD"},
-    {"func_pair_name": "BTC/XAU", "url_segment": "BTCXAU"},
-    {"func_pair_name": "BTC/XAG", "url_segment": "BTCXAG"},
-    {"func_pair_name": "EUR/AUD", "url_segment": "EURAUD"},
+    {"func_pair_name": "XAUGBP", "url_segment": "XAUGBP"},
+    {"func_pair_name": "XAUAUD", "url_segment": "XAUAUD"},
+    {"func_pair_name": "GBPUSD", "url_segment": "GBPUSD"},
+    #{"func_pair_name": "XNIUSD", "url_segment": "XNIUSD"},
+    {"func_pair_name": "XAGAUD", "url_segment": "XAGAUD"},
+    {"func_pair_name": "XAUEUR", "url_segment": "XAUEUR"},
+    {"func_pair_name": "XAGEUR", "url_segment": "XAGEUR"},
+    {"func_pair_name": "BTCUSD", "url_segment": "BTCUSD"},
+    {"func_pair_name": "BTCXAU", "url_segment": "BTCXAU"},
+    {"func_pair_name": "BTCXAG", "url_segment": "BTCXAG"},
+    {"func_pair_name": "EURAUD", "url_segment": "EURAUD"},
 ]
 
 # ---------------------------------------------------------
@@ -196,13 +196,13 @@ VARX_ENDOG_GROUPS = {
         'XAUEUR_Close_Log_Return',
         'XAGAUD_Close_Log_Return',
         'XAGEUR_Close_Log_Return',
-        'XNIUSD_Close_Log_Return'
+        #'XNIUSD_Close_Log_Return'
     ],
-    'Crypto': [
-        'BTCUSD_Close_Log_Return',
-        'BTCXAU_Close_Log_Return',
-        'BTCXAG_Close_Log_Return'
-    ],
+    #'Crypto': [
+    #    'BTCUSD_Close_Log_Return',
+    #    'BTCXAU_Close_Log_Return',
+    #    'BTCXAG_Close_Log_Return'
+    #],
     'Risk_Index': [
         'US500_Close_Log_Return',
         'DXY_Close_Log_Return'
@@ -237,7 +237,7 @@ RLS_TP_RR_MIN = 0.3
 RLS_SL_MAX_MULTIPLIER = 2.2
 
 _RLS_CONFIDENCE = False
-RLS_MIN_UPDATES_FOR_CONFIDENCE = 40
+RLS_MIN_UPDATES_FOR_CONFIDENCE = 0.5
 RLS_CONFIDENCE_ALPHA = 0.4
 RLS_CONFIDENCE_ENTRY_THRESHOLD = 0.40
 RLS_MAX_PRED_VARIANCE_FOR_ENTRY = 25.0
@@ -290,7 +290,7 @@ KALMAN_FLIP_ZSCORE = 1.0
 # ---------------------------------------------------------
 # SAFEGUARDS & MISC
 # ---------------------------------------------------------
-NEWS = True
+NEWS = False
 BLOCK_SIGNAL_FOR = {"US500", "US30", "DXY", "USDCAD", "USDJPY", "AUDUSD", "GBPUSD"}
 BLOK_SIGNAL_FOR = BLOCK_SIGNAL_FOR
 

@@ -5,5 +5,7 @@ __pycache__/
 *.txt
 *.log
 *.exe
+*.parquet
+backtest_results/
 vps_sync/
 data_base/
