@@ -13,6 +13,15 @@ class ParameterCompatibilityTests(unittest.TestCase):
     def test_pairs_symbol_alignment(self):
         self.assertIn("US500", parameter.PAIRS)
         self.assertNotIn("SP500", parameter.PAIRS)
+        self.assertEqual(parameter.PAIRS["DXY"], "DXYm")
+        self.assertEqual(parameter.PAIRS["GBPUSD"], "GBPUSDm")
+
+    def test_asset_registry_derives_pairs_and_fred_series(self):
+        self.assertIn("GBPUSD", parameter.ASSET_REGISTRY)
+        self.assertEqual(parameter.ASSET_REGISTRY["XAUUSD"]["asset_class"], "commodities")
+        self.assertEqual(parameter.FRED_SERIES["EFFRVOL"], "EFFRVOL")
+        self.assertNotIn("EFFRVOL", parameter.PAIRS)
+        self.assertEqual(parameter.BASE_DATA_DIR, "/content/drive/MyDrive/books/CASSANDRA/base_data")
 
     def test_imputation_special_assets_contains_btc_cross(self):
         names = {item["func_pair_name"] for item in parameter.IMPUTATION_SPECIAL_ASSETS}

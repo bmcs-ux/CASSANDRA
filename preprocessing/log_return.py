@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import polars as pl
 
 def apply_log_return_to_price(log_stream, mtf_data_dict, price_columns=None):
     """
@@ -27,19 +28,24 @@ def apply_log_return_to_price(log_stream, mtf_data_dict, price_columns=None):
             log_returns_dict[pair_name] = pd.DataFrame() # Ensure key exists but with empty DF
             continue
 
-        df_log_returns = df_original.copy()
+        lf = pl.from_pandas(df_original.reset_index()).lazy()
         applied_to_any_column = False
+        expressions = []
         for col in price_columns:
-            if col in df_log_returns.columns:
-                df_log_returns[f'{pair_name}_{col}_Log_Return'] = np.log(df_log_returns[col] / df_log_returns[col].shift(1))
+            if col in df_original.columns:
+                expressions.append(
+                    (pl.col(col).log() - pl.col(col).shift(1).log()).alias(f'{pair_name}_{col}_Log_Return')
+                )
                 applied_to_any_column = True
             else:
                 log_stream.write(f"[WARN] Kolom '{col}' tidak ditemukan di DataFrame untuk {pair_name}. Dilewati.\n")
 
         if applied_to_any_column:
-            # Drop original price columns, keep only log returns and index
-            log_return_cols = [col for col in df_log_returns.columns if col.endswith('_Log_Return')]
-            log_returns_dict[pair_name] = df_log_returns[log_return_cols].dropna() # Dropna to remove first NaN from shift
+            index_col = df_original.index.name or "index"
+            df_polars = lf.select([pl.col(index_col)] + expressions).drop_nulls().collect(streaming=True)
+            df_pd = pd.DataFrame(df_polars.to_dict(as_series=False)).set_index(index_col)
+            log_return_cols = [col for col in df_pd.columns if col.endswith('_Log_Return')]
+            log_returns_dict[pair_name] = df_pd[log_return_cols]
             if log_returns_dict[pair_name].empty:
                 log_stream.write(f"[WARN] No valid log returns generated for pair '{pair_name}' after dropping NaNs.\n")
         else:

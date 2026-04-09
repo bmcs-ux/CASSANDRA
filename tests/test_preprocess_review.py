@@ -1,13 +1,31 @@
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 
 import main
 
+try:
+    import polars as pl
+except ImportError:  # pragma: no cover - optional dependency for local runs
+    pl = None
+
 
 class PreprocessReviewHelpersTests(unittest.TestCase):
+    def test_debug_log_stream_echoes_when_enabled(self):
+        stdout = StringIO()
+        stream = main.DebugLogStream(debug_enabled=True)
+
+        with redirect_stdout(stdout):
+            stream.write("[DEBUG] halo\n")
+
+        self.assertIn("[DEBUG] halo", stream.getvalue())
+        self.assertIn("[DEBUG] halo", stdout.getvalue())
+
     def test_summarize_dataframe_counts_missing(self):
         df = pd.DataFrame(
             {
@@ -75,16 +93,19 @@ class PreprocessReviewHelpersTests(unittest.TestCase):
         pd.testing.assert_frame_equal(reviewed, fred_df)
 
 
-    def test_mtf_menu_save_writes_pickle(self):
+    @unittest.skipIf(pl is None, "polars is required for parquet persistence tests")
+    def test_mtf_menu_save_writes_parquet(self):
         idx = pd.date_range("2024-01-01", periods=2, freq="D")
         mtf = {"D1": {"XAUUSD": pd.DataFrame({"Open": [1, 2], "Close": [1, 2]}, index=idx)}}
         fred_df = pd.DataFrame({"EFFRVOL": [1.0, 2.0]}, index=idx)
 
-        with patch("main._save_pickle") as save_mock, patch("builtins.input", side_effect=["s", "k"]):
+        with tempfile.TemporaryDirectory() as tmpdir, patch.object(main.parameter, "BASE_DATA_DIR", tmpdir), patch("builtins.input", side_effect=["s", "k"]):
             reviewed = main.review_and_confirm_mtf_data(StringIO(), mtf, fred_df, interactive=True)
 
+            saved_files = list(Path(tmpdir).glob("asset_class=*/symbol=*/timeframe=*/*.parquet"))
+
         self.assertIn("D1", reviewed)
-        save_mock.assert_called_once()
+        self.assertEqual(len(saved_files), 1)
 
     def test_mtf_imputation_uses_special_assets_only_for_imputation(self):
         idx = pd.date_range("2024-01-01", periods=3, freq="D")
@@ -116,6 +137,29 @@ class PreprocessReviewHelpersTests(unittest.TestCase):
             )
 
         self.assertNotIn("BTC/USD", reviewed["D1"])
+
+    @unittest.skipIf(pl is None, "polars is required for parquet persistence tests")
+    def test_save_and_load_parquet_roundtrip_preserves_timeframes(self):
+        idx = pd.date_range("2024-01-01", periods=3, freq="D", tz="UTC")
+        mtf = {
+            "D1": {
+                "XAUUSD": pd.DataFrame({"Open": [1.0, 2.0, 3.0], "Close": [1.5, 2.5, 3.5]}, index=idx),
+            },
+            "H1": {
+                "GBPUSD": pd.DataFrame({"Open": [4.0, 5.0, 6.0], "Close": [4.5, 5.5, 6.5]}, index=idx),
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            stream = StringIO()
+            main._save_parquet(stream, mtf, tmpdir, "mtf_base_dfs", main.parameter.ASSET_REGISTRY)
+            loaded = main._load_parquet_lazy(tmpdir, main.parameter.ASSET_REGISTRY)
+
+        self.assertEqual(set(loaded.keys()), {"D1", "H1"})
+        self.assertIn("XAUUSD", loaded["D1"])
+        self.assertIn("GBPUSD", loaded["H1"])
+        pd.testing.assert_frame_equal(loaded["D1"]["XAUUSD"], mtf["D1"]["XAUUSD"])
+        pd.testing.assert_frame_equal(loaded["H1"]["GBPUSD"], mtf["H1"]["GBPUSD"])
 
     def test_fred_menu_save_writes_pickle(self):
         idx = pd.date_range("2024-01-01", periods=2, freq="D")
