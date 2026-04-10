@@ -1,4 +1,4 @@
-//! backtest_rs::python_bindings
+//! backtest::python_bindings
 //!
 //! PyO3 extension module.
 //!
@@ -26,6 +26,7 @@
 //!   `pythonize` crate (one allocation per batch, not per row).
 
 use std::collections::HashMap;
+use polars::prelude::SerReader;
 
 use pyo3::{
     exceptions::PyValueError,
@@ -444,8 +445,8 @@ fn py_to_polars_df(py: Python<'_>, df_py: &PyAny) -> PyResult<polars::prelude::D
 // Module registration
 // ---------------------------------------------------------------------------
 
-#[pymodule]
-pub fn backtest_rs(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+//#[pymodule]
+pub fn backtest(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyFastEngine>()?;
     m.add_class::<BacktestConfig>()?;
     m.add_function(wrap_pyfunction!(run_backtest, m)?)?;

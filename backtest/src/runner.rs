@@ -1,4 +1,4 @@
-//! backtest_rs::runner
+//! backtest::runner
 //!
 //! High-level batch runner.
 //!
@@ -81,7 +81,7 @@ pub struct SignalInput {
 // Batch result
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct BatchResult {
     pub trade_ledger:    Vec<TradeRow>,
     pub decision_ledger: Vec<DecisionRow>,

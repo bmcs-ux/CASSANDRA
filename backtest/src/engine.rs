@@ -1,4 +1,4 @@
-//! backtest_rs::engine
+//! backtest::engine
 //!
 //! `FastEngine` owns one per-symbol M1 DataFrame sorted by Timestamp.
 //! It prebuilds a HashMap<i64, usize> for O(1) bar-index lookup, then
@@ -181,7 +181,7 @@ pub fn simulate_trade_inner(
     };
     let kz_ca_opt: Option<&ChunkedArray<Float64Type>> = kz_opt
         .as_ref()
-        .and_then(|s| s.cast(&DataType::Float64).ok().as_ref().map(|_| None).or(None));
+        .and_then(|s| s.f64().ok()); // f64() langsung memberikan ChunkedArray<Float64Type>
     // We cast lazily to avoid allocation when kalman not present — handle below.
 
     // ── Mutable SL/TP state ──────────────────────────────────────────────────
@@ -216,7 +216,7 @@ pub fn simulate_trade_inner(
         // 2. Kalman flip check (before SL/TP to mirror live engine)
         if has_ktrend && has_kz {
             if let Some(flipped) = check_kalman_flip_at(
-                df, ktrend_opt.as_ref(), i, dir, flip_threshold,
+                ddf, ktrend_opt, i, dir, flip_threshold,
             ) {
                 if flipped {
                     kalman_flip_bar = Some(bar_i);
