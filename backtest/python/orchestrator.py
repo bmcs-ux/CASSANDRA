@@ -4,7 +4,7 @@ python/orchestrator.py
 Python-side orchestrator that:
 1. Converts ``cycle_results`` (live-engine format) → ``List[SignalInput dict]``
 2. Loads per-symbol M1 DataFrames into ``PyFastEngine`` instances
-3. Calls ``backtest_rs.run_backtest`` (Rust core)
+3. Calls ``backtest.run_backtest`` (Rust core)
 4. Returns a ``ReplayResult``-compatible dict
 
 This file is the *only* Python code that runs at backtest time.
@@ -31,6 +31,7 @@ import importlib
 import warnings
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence
+import re
 
 # ---------------------------------------------------------------------------
 # Feature aliases — must stay in sync with Rust FEATURE_FIELD_ALIASES
@@ -59,6 +60,8 @@ _GATE_SKIP   = frozenset({
     "rls_confidence", "deviation_score", "kalman_zscore", "dcc_correlation",
     "innovation_zscore", "trend", "contagion_score", "can_buy", "can_sell",
 })
+
+_VALID_GATE_NAME = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -106,11 +109,13 @@ def _extract_gates(signal_obj: Mapping, current_cycle: Mapping, symbol: str) -> 
         for k, v in cand.items():
             if k in _GATE_SKIP or k.startswith("_"):
                 continue
+            if not _VALID_GATE_NAME.match(k):   # ← TAMBAH: tolak key non-identifier
+                continue
             if isinstance(v, bool):
                 gate_results.setdefault(k, v)
-            elif isinstance(v, (int, float)):
-                nb = bool(v)
-                gate_results.setdefault(k, nb)
+            elif isinstance(v, int) and not isinstance(v, bool):
+                # int 0/1 boleh; float dilarang (bisa NaN / junk values)
+                gate_results.setdefault(k, bool(v))
     for gn in blocked_by:
         gate_results[gn] = False
     return gate_results, blocked_by
@@ -174,6 +179,8 @@ def extract_signals(
             sig: dict = {
                 "timestamp":       _ts_to_epoch_ms(ts_raw),
                 "timestamp_str":   str(ts_raw) if ts_raw is not None else "",
+                "cycle_index":     ci,
+                "signal_index":    si,
                 "next_timestamp":  str(nts_raw) if nts_raw is not None else None,
                 "symbol":          symbol,
                 "action":          action,
@@ -250,16 +257,16 @@ def build_replay_ledgers_fast(
         return dataclasses.asdict(result)
 
     try:
-        import backtest_rs  # compiled Rust extension
+        import backtest  # compiled Rust extension
     except ImportError as exc:
         raise ImportError(
-            "backtest_rs Rust extension not found.  "
-            "Run `maturin develop --release` in the backtest_rs directory, "
+            "backtest Rust extension not found.  "
+            "Run `maturin develop --release` in the backtest directory, "
             "or pass use_rust=False to fall back to the Python implementation."
         ) from exc
 
     # ── Build Rust config ───────────────────────────────────────────────────
-    cfg = backtest_rs.BacktestConfig(
+    cfg = backtest.BacktestConfig(
         fee_bps=fee_bps,
         slippage_bps=slippage_bps,
         horizons=list(horizons),
@@ -272,11 +279,43 @@ def build_replay_ledgers_fast(
 
     # ── Build per-symbol engines ────────────────────────────────────────────
     engines: dict[str, backtest_rs.PyFastEngine] = {}
+    engine_errors: list[str] = []
+
     if mtf_base_dfs:
         for sym, raw in mtf_base_dfs.items():
             df = _to_polars(raw, sym)
-            if df is not None:
-                engines[sym] = backtest_rs.PyFastEngine(df, sym)
+            if df is None:
+                engine_errors.append(f"{sym}: _to_polars gagal (input type={type(raw).__name__})")
+                continue
+            if df.height() == 0:
+                engine_errors.append(f"{sym}: DataFrame kosong, skip engine")
+                continue
+            try:
+                ipc_bytes = _df_to_ipc_bytes(df, sym)
+                engines[sym] = backtest_rs.PyFastEngine(ipc_bytes, sym)
+            except Exception as e:
+                engine_errors.append(f"{sym}: {e}")
+
+    if engine_errors:
+        # Raise kalau SEMUA engine gagal — ini indikasi masalah sistemik
+        if mtf_base_dfs and not engines:
+            raise RuntimeError(
+                "Semua M1 engine gagal dibangun:\n" + "\n".join(engine_errors)
+            )
+        # Sebagian gagal — warn tapi lanjut
+        warnings.warn(
+            f"{len(engine_errors)} engine gagal (dari {len(mtf_base_dfs)}):\n"
+            + "\n".join(engine_errors),
+            stacklevel=2,
+        )
+
+    # Log ringkasan engine yang berhasil
+    if engines:
+        print(f"[backtest_rs] {len(engines)}/{len(mtf_base_dfs or {})} engine M1 aktif: "
+              f"{sorted(engines.keys())}")
+    else:
+        print("[backtest_rs] Tidak ada engine M1 — mode legacy one-bar aktif")
+
 
     # ── Extract signals ────────────────────────────────────────────────────
     signals = extract_signals(cycle_results)
@@ -285,7 +324,7 @@ def build_replay_ledgers_fast(
         return _empty_result(fee_bps, slippage_bps, equity_curve_mode, list(horizons))
 
     # ── Run ────────────────────────────────────────────────────────────────
-    result = backtest_rs.run_backtest(
+    result = backtest.run_backtest(
         signals,
         engines,
         cfg,
@@ -317,6 +356,29 @@ def build_replay_ledgers_fast(
 # ---------------------------------------------------------------------------
 # Format conversion helpers
 # ---------------------------------------------------------------------------
+
+def _df_to_ipc_bytes(df: Any, symbol: str) -> bytes:
+    """Serialize polars DataFrame → Arrow IPC bytes.
+
+    Raises ValueError dengan pesan jelas jika df bukan polars DataFrame
+    atau jika write_ipc gagal — agar caller bisa log dengan benar.
+    """
+    import io
+    try:
+        buf = io.BytesIO()
+        df.write_ipc(buf)           # polars: write_ipc(file) → None
+        result = buf.getvalue()
+        if not result:
+            raise ValueError(f"[{symbol}] write_ipc produced 0 bytes — DataFrame mungkin kosong")
+        return result
+    except AttributeError:
+        raise ValueError(
+            f"[{symbol}] Object bukan polars DataFrame (type={type(df).__name__}). "
+            "Pastikan mtf_base_dfs berisi polars.DataFrame."
+        )
+    except Exception as exc:
+        raise ValueError(f"[{symbol}] Gagal serialize ke IPC: {exc}") from exc
+
 
 def _to_polars(data: Any, symbol: str):
     """Convert List[dict], pandas DataFrame, or polars DataFrame to polars DataFrame."""

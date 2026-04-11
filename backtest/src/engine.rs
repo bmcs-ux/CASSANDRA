@@ -216,7 +216,7 @@ pub fn simulate_trade_inner(
         // 2. Kalman flip check (before SL/TP to mirror live engine)
         if has_ktrend && has_kz {
             if let Some(flipped) = check_kalman_flip_at(
-                ddf, ktrend_opt, i, dir, flip_threshold,
+                df, ktrend_opt, i, dir, flip_threshold,
             ) {
                 if flipped {
                     kalman_flip_bar = Some(bar_i);

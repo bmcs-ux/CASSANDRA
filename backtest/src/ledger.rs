@@ -99,9 +99,11 @@ pub fn build_decision_row(
     cfg:      &EngineConfig,
 ) -> DecisionRow {
     let tcost = 2.0 * (cfg.fee_bps + cfg.slippage_bps);
-    let did   = format!(
-        "{}:{}:{}",
-        sig.timestamp_str, sig.symbol, sig.timestamp
+
+    // Mirror Python _decision_id: "{ts}:{cycle_index}:{signal_index}:{symbol}"
+    let did = format!(
+        "{}:{}:{}:{}",
+        sig.timestamp_str, sig.cycle_index, sig.signal_index, sig.symbol
     );
 
     let mut gr = sig.gate_results.clone();

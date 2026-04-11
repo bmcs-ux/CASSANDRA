@@ -1,29 +1,27 @@
-//! backtest::python_bindings
+//! backtest_rs::python_bindings
 //!
 //! PyO3 extension module.
 //!
 //! EXPOSED API (Python-visible)
 //! ─────────────────────────────
-//!   PyFastEngine(df: polars.DataFrame) → per-symbol intrabar engine
-//!   PyBatchRunner                       → multi-symbol parallel runner
+//!   PyFastEngine(ipc_bytes, symbol) → per-symbol intrabar engine
+//!   BacktestConfig                  → EngineConfig wrapper
 //!   run_backtest(signals, engines, cfg) → BatchResult as Python dicts
-//!   BacktestConfig                      → EngineConfig wrapper
 //!
 //! DATA FLOW
 //! ─────────
-//! Python orchestrator collects cycle_results, extracts SignalInput dicts,
-//! and passes them to `run_backtest`.  The Rust layer handles:
-//!   • Per-symbol FastEngine (preloaded M1 DataFrames)
-//!   • Parallel simulation via rayon
-//!   • Returns JSON-serialisable Python dicts (no Polars round-trip needed)
+//! Python orchestrator:
+//!   1. Serialises each per-symbol polars DataFrame to IPC bytes on the
+//!      Python side (`buf = io.BytesIO(); df.write_ipc(buf)`).
+//!   2. Passes IPC bytes to `PyFastEngine(buf.getvalue(), sym)`.
+//!   3. Calls `run_backtest(signals, engines, cfg)`.
 //!
-//! AVOIDING PYTHON ↔ RUST COPY BOTTLENECKS
-//! ─────────────────────────────────────────
-//! • Polars DataFrames are passed as Python objects and converted via
-//!   `polars::prelude::DataFrame::try_from(&PyAny)` — this uses the
-//!   Arrow IPC zero-copy path when available.
-//! • Output is serialised to `serde_json::Value` → `PyDict` using the
-//!   `pythonize` crate (one allocation per batch, not per row).
+//! WHY IPC BYTES (NOT PyAny DataFrame)
+//! ─────────────────────────────────────
+//! `polars.DataFrame.write_ipc(path_or_buf)` writes to a file/buffer and
+//! returns None — it does NOT return bytes.  Extracting `Vec<u8>` from None
+//! raises a PyO3 `NoneType` conversion error.  Passing pre-serialised bytes
+//! from Python is the correct, version-stable contract.
 
 use std::collections::HashMap;
 use polars::prelude::SerReader;
@@ -123,14 +121,25 @@ pub struct PyFastEngine {
 
 #[pymethods]
 impl PyFastEngine {
-    /// Construct from a Polars DataFrame Python object.
+    /// Construct from Arrow IPC bytes produced on the Python side.
+    ///
+    /// Python caller:
+    ///     import io
+    ///     buf = io.BytesIO()
+    ///     df.write_ipc(buf)
+    ///     engine = PyFastEngine(buf.getvalue(), "EURUSD")
+    ///
     /// The DataFrame must have columns: Timestamp, Open, High, Low, Close.
     /// Optional: kalman_trend, kalman_zscore / innovation_zscore.
     #[new]
-    fn new(py: Python<'_>, df_py: &PyAny, symbol: &str) -> PyResult<Self> {
-        // polars-python exposes `_df` (internal ArrowData) via the Python Polars API.
-        // We use `polars::frame::DataFrame::from_pydict`-style import.
-        let df = py_to_polars_df(py, df_py)?;
+    fn new(ipc_bytes: Vec<u8>, symbol: &str) -> PyResult<Self> {
+        use polars::io::ipc::IpcReader;
+        use std::io::Cursor;
+
+        let df = IpcReader::new(Cursor::new(ipc_bytes))
+            .finish()
+            .map_err(|e| PyValueError::new_err(format!("IPC parse error: {e}")))?;
+
         let engine = FastEngine::new(df).map_err(to_py_err)?;
         Ok(Self { engine, symbol: symbol.to_string() })
     }
@@ -411,34 +420,6 @@ fn py_dict_to_signal_input(obj: &PyAny) -> PyResult<SignalInput> {
         can_buy:         get_opt_bool!("can_buy"),
         can_sell:        get_opt_bool!("can_sell"),
     })
-}
-
-// ---------------------------------------------------------------------------
-// Polars DataFrame import from Python
-// ---------------------------------------------------------------------------
-
-fn py_to_polars_df(py: Python<'_>, df_py: &PyAny) -> PyResult<polars::prelude::DataFrame> {
-    // polars-python (>=0.19) exposes `.to_arrow()` which returns a PyArrow Table.
-    // We can also use the internal `._df` attribute to get a PyCapsule.
-    // The safest cross-version approach: use polars IPC bytes.
-    let ipc_bytes: Vec<u8> = df_py
-        .call_method0("write_ipc")
-        .or_else(|_| {
-            // Fallback: call df.serialize(format="ipc") available in newer polars
-            df_py.call_method1("serialize", ("ipc",))
-        })
-        .and_then(|v| v.extract::<Vec<u8>>())
-        .map_err(|e| PyValueError::new_err(format!(
-            "Cannot convert DataFrame to IPC bytes: {}. \
-             Pass a polars.DataFrame with write_ipc() support.", e
-        )))?;
-
-    use polars::io::ipc::IpcReader;
-    use std::io::Cursor;
-
-    IpcReader::new(Cursor::new(ipc_bytes))
-        .finish()
-        .map_err(|e| PyValueError::new_err(format!("IPC parse error: {e}")))
 }
 
 // ---------------------------------------------------------------------------
