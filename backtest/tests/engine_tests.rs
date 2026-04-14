@@ -3,7 +3,7 @@
 //! Regression tests that verify the Rust engine produces the same results
 //! as the Python reference implementation.
 
-use backtest_rs::{
+use backtest::{
     engine::{simulate_trade_inner, COL_CLOSE, COL_HIGH, COL_LOW, COL_OPEN, COL_TS},
     types::{Direction, EngineConfig, ExitReason},
 };

@@ -1,4 +1,4 @@
-# backtest_rs — Sprint 3 High-Performance Intrabar Backtest Engine
+# backtest — Sprint 3 High-Performance Intrabar Backtest Engine
 
 Rust/Polars core rewrite of the Python `build_replay_ledgers` pipeline.
 Drop-in replacement with identical output schema.
@@ -14,7 +14,7 @@ Python (orchestrator.py)
     │  _to_polars()               — format normalisation
     │
     ▼
-backtest_rs (Rust extension — PyO3)
+backtest (Rust extension — PyO3)
     │
     ├── BacktestConfig            — EngineConfig wrapper, constructed once
     │
@@ -136,7 +136,7 @@ pytest python/tests/              # Python integration tests
 ## File layout
 
 ```
-backtest_rs/
+backtest/
 ├── Cargo.toml
 ├── pyproject.toml
 ├── src/

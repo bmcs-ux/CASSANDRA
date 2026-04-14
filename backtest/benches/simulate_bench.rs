@@ -4,7 +4,7 @@
 //!
 //! Measures throughput of `simulate_trade_inner` on synthetic M1 data.
 
-use backtest_rs::{
+use backtest::{
     engine::{simulate_trade_inner, COL_CLOSE, COL_HIGH, COL_LOW, COL_OPEN, COL_TS},
     types::{Direction, EngineConfig},
 };

@@ -4,7 +4,7 @@ python/orchestrator.py
 Python-side orchestrator that:
 1. Converts ``cycle_results`` (live-engine format) → ``List[SignalInput dict]``
 2. Loads per-symbol M1 DataFrames into ``PyFastEngine`` instances
-3. Calls ``backtest_rs.run_backtest`` (Rust core)
+3. Calls ``backtest.run_backtest`` (Rust core)
 4. Returns a ``ReplayResult``-compatible dict
 
 This file is the *only* Python code that runs at backtest time.
@@ -48,6 +48,7 @@ _FEATURE_ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 _PRICE_KEYS  = ("latest_actual_prices", "actual_prices", "prices")
+_PREFERRED_ACTION_KEYS = ("preferred_action", "raw_action", "intended_action", "suggested_action")
 _GATE_SKIP   = frozenset({
     "signal", "entry_price", "sl", "tp", "stop_loss", "take_profit",
     "position_units", "timestamp", "symbol", "direction",
@@ -115,6 +116,13 @@ def _extract_gates(signal_obj: Mapping, current_cycle: Mapping, symbol: str) -> 
         gate_results[gn] = False
     return gate_results, blocked_by
 
+def _preferred_action(signal_obj: Mapping) -> Any:
+    for key in _PREFERRED_ACTION_KEYS:
+        value = signal_obj.get(key)
+        if value is not None:
+            return value
+    return None
+
 
 def _ts_to_epoch_ms(ts: Any) -> int:
     """Convert various timestamp formats to milliseconds since epoch (i64)."""
@@ -177,7 +185,7 @@ def extract_signals(
                 "next_timestamp":  str(nts_raw) if nts_raw is not None else None,
                 "symbol":          symbol,
                 "action":          action,
-                "preferred_action":signal_obj.get("preferred_action"),
+                "preferred_action": _preferred_action(signal_obj),
                 "entry_price":     (
                     signal_obj.get("entry_price")
                     or cp.get(symbol)
@@ -250,16 +258,16 @@ def build_replay_ledgers_fast(
         return dataclasses.asdict(result)
 
     try:
-        import backtest_rs  # compiled Rust extension
+        import backtest  # compiled Rust extension
     except ImportError as exc:
         raise ImportError(
-            "backtest_rs Rust extension not found.  "
-            "Run `maturin develop --release` in the backtest_rs directory, "
+            "backtest Rust extension not found.  "
+            "Run `maturin develop --release` in the backtest directory, "
             "or pass use_rust=False to fall back to the Python implementation."
         ) from exc
 
     # ── Build Rust config ───────────────────────────────────────────────────
-    cfg = backtest_rs.BacktestConfig(
+    cfg = backtest.BacktestConfig(
         fee_bps=fee_bps,
         slippage_bps=slippage_bps,
         horizons=list(horizons),
@@ -271,12 +279,12 @@ def build_replay_ledgers_fast(
     )
 
     # ── Build per-symbol engines ────────────────────────────────────────────
-    engines: dict[str, backtest_rs.PyFastEngine] = {}
+    engines: dict[str, backtest.PyFastEngine] = {}
     if mtf_base_dfs:
         for sym, raw in mtf_base_dfs.items():
             df = _to_polars(raw, sym)
             if df is not None:
-                engines[sym] = backtest_rs.PyFastEngine(df, sym)
+                engines[sym] = backtest.PyFastEngine(df, sym)
 
     # ── Extract signals ────────────────────────────────────────────────────
     signals = extract_signals(cycle_results)
@@ -285,7 +293,7 @@ def build_replay_ledgers_fast(
         return _empty_result(fee_bps, slippage_bps, equity_curve_mode, list(horizons))
 
     # ── Run ────────────────────────────────────────────────────────────────
-    result = backtest_rs.run_backtest(
+    result = backtest.run_backtest(
         signals,
         engines,
         cfg,
