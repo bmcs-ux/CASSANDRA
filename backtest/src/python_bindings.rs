@@ -36,7 +36,7 @@ use serde_json::Value;
 use crate::{
     attribution::summarize_gate_attribution,
     engine::FastEngine,
-    runner::{run_parallel_by_symbol, run_serial, SignalInput},
+    runner::{SignalInput},
     types::EngineConfig,
 };
 
@@ -396,6 +396,8 @@ fn py_dict_to_signal_input(obj: &PyAny) -> PyResult<SignalInput> {
     Ok(SignalInput {
         timestamp:       d.get_item("timestamp")?.map(|v| v.extract::<i64>()).transpose()?.unwrap_or(0),
         timestamp_str:   d.get_item("timestamp_str")?.map(|v| v.extract::<String>()).transpose()?.unwrap_or_default(),
+        cycle_index:     d.get_item("cycle_index")?.map(|v| v.extract::<usize>()).transpose()?.unwrap_or(0),
+        signal_index:    d.get_item("signal_index")?.map(|v| v.extract::<usize>()).transpose()?.unwrap_or(0),
         next_timestamp:  get_opt_str!("next_timestamp"),
         symbol:          d.get_item("symbol")?.map(|v| v.extract::<String>()).transpose()?.unwrap_or_default(),
         action:          d.get_item("action")?.map(|v| v.extract::<String>()).transpose()?.unwrap_or_else(|| "HOLD".into()),

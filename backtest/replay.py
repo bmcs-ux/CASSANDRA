@@ -211,7 +211,7 @@ class IntrabarDataAdapter:
     def bars_after(self, entry_timestamp: Any) -> Iterator[Dict[str, Any]]:
         entry_ts = _normalize_timestamp(entry_timestamp)
         for bar in self._iter_all():
-            bar_ts = _normalize_timestamp(bar.get("timestamp"))
+            bar_ts = _normalize_timestamp(bar.get("Timestamp"))
             if bar_ts is not None and entry_ts is not None and bar_ts <= entry_ts:
                 continue
             yield bar
@@ -588,11 +588,11 @@ class PositionSimulator:
 
         for bar in self.adapter.bars_after(self.entry_timestamp):
             bars_held += 1
-            bar_ts    = _normalize_timestamp(bar.get("timestamp"))
-            bar_open  = _safe_float(bar.get("open"))
-            bar_high  = _safe_float(bar.get("high"))
-            bar_low   = _safe_float(bar.get("low"))
-            bar_close = _safe_float(bar.get("close"))
+            bar_ts    = _normalize_timestamp(bar.get("Timestamp"))
+            bar_open  = _safe_float(bar.get("Open"))
+            bar_high  = _safe_float(bar.get("High"))
+            bar_low   = _safe_float(bar.get("Low"))
+            bar_close = _safe_float(bar.get("Close"))
             mid_price = bar_close or bar_open or self.entry_price_raw
 
             # 1. Dynamic SL/TP update

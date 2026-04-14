@@ -278,7 +278,7 @@ def build_replay_ledgers_fast(
     )
 
     # ── Build per-symbol engines ────────────────────────────────────────────
-    engines: dict[str, backtest_rs.PyFastEngine] = {}
+    engines: dict[str, backtest.PyFastEngine] = {}
     engine_errors: list[str] = []
 
     if mtf_base_dfs:
@@ -287,12 +287,12 @@ def build_replay_ledgers_fast(
             if df is None:
                 engine_errors.append(f"{sym}: _to_polars gagal (input type={type(raw).__name__})")
                 continue
-            if df.height() == 0:
+            if df.height == 0: # Corrected from df.height()
                 engine_errors.append(f"{sym}: DataFrame kosong, skip engine")
                 continue
             try:
                 ipc_bytes = _df_to_ipc_bytes(df, sym)
-                engines[sym] = backtest_rs.PyFastEngine(ipc_bytes, sym)
+                engines[sym] = backtest.PyFastEngine(ipc_bytes, sym)
             except Exception as e:
                 engine_errors.append(f"{sym}: {e}")
 
@@ -318,7 +318,7 @@ def build_replay_ledgers_fast(
 
 
     # ── Extract signals ────────────────────────────────────────────────────
-    signals = extract_signals(cycle_results)
+    signals = extract_signals(cycle_results);
 
     if not signals:
         return _empty_result(fee_bps, slippage_bps, equity_curve_mode, list(horizons))

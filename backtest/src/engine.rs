@@ -22,7 +22,6 @@
 //! 5. **Label pass** is a single forward loop reusing the same bar indices
 //!    already visited during SL/TP detection — no second traversal.
 
-use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 use hashbrown::HashMap as FastMap;
@@ -179,10 +178,7 @@ pub fn simulate_trade_inner(
     } else {
         None
     };
-    let kz_ca_opt: Option<&ChunkedArray<Float64Type>> = kz_opt
-        .as_ref()
-        .and_then(|s| s.f64().ok()); // f64() langsung memberikan ChunkedArray<Float64Type>
-    // We cast lazily to avoid allocation when kalman not present — handle below.
+
 
     // ── Mutable SL/TP state ──────────────────────────────────────────────────
     let mut sl       = initial_sl;

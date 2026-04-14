@@ -30,7 +30,6 @@
 
 use std::collections::HashMap;
 
-use anyhow::Result;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -117,7 +116,7 @@ pub fn process_signal(
     if dir_int == 0 && sig.preferred_action.is_none() {
         decision.skip_reason = Some("hold_signal".into());
         return (decision, None);
-
+    }
     // ── Entry price ─────────────────────────────────────────────────────────
     let (entry_raw, entry_src, entry_fallback) = match sig.entry_price {
         Some(p) => (p, "signal", false),
@@ -384,7 +383,7 @@ fn legacy_sim(
     sig:       &SignalInput,
     entry_raw: f64,
     dir:       Direction,
-    cfg:       &EngineConfig,
+    _cfg:       &EngineConfig,
 ) -> crate::types::SimResult {
     use crate::types::SimResult;
     match sig.exit_price_next {
