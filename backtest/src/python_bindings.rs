@@ -1,4 +1,4 @@
-//! backtest_rs::python_bindings
+//! backtest::python_bindings
 //!
 //! PyO3 extension module.
 //!

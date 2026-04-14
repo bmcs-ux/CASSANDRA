@@ -1,4 +1,4 @@
-//! backtest_rs::ledger
+//! backtest::ledger
 //!
 //! Row-building helpers that mirror the Python `_base_decision_row` and
 //! `_build_trade_row` functions exactly — field names preserved for

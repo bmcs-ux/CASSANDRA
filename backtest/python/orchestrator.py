@@ -49,6 +49,7 @@ _FEATURE_ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 _PRICE_KEYS  = ("latest_actual_prices", "actual_prices", "prices")
+_PREFERRED_ACTION_KEYS = ("preferred_action", "raw_action", "intended_action", "suggested_action")
 _GATE_SKIP   = frozenset({
     "signal", "entry_price", "sl", "tp", "stop_loss", "take_profit",
     "position_units", "timestamp", "symbol", "direction",
@@ -120,6 +121,13 @@ def _extract_gates(signal_obj: Mapping, current_cycle: Mapping, symbol: str) -> 
         gate_results[gn] = False
     return gate_results, blocked_by
 
+def _preferred_action(signal_obj: Mapping) -> Any:
+    for key in _PREFERRED_ACTION_KEYS:
+        value = signal_obj.get(key)
+        if value is not None:
+            return value
+    return None
+
 
 def _ts_to_epoch_ms(ts: Any) -> int:
     """Convert various timestamp formats to milliseconds since epoch (i64)."""
@@ -184,7 +192,7 @@ def extract_signals(
                 "next_timestamp":  str(nts_raw) if nts_raw is not None else None,
                 "symbol":          symbol,
                 "action":          action,
-                "preferred_action":signal_obj.get("preferred_action"),
+                "preferred_action": _preferred_action(signal_obj),
                 "entry_price":     (
                     signal_obj.get("entry_price")
                     or cp.get(symbol)
@@ -311,10 +319,10 @@ def build_replay_ledgers_fast(
 
     # Log ringkasan engine yang berhasil
     if engines:
-        print(f"[backtest_rs] {len(engines)}/{len(mtf_base_dfs or {})} engine M1 aktif: "
+        print(f"[backtest] {len(engines)}/{len(mtf_base_dfs or {})} engine M1 aktif: "
               f"{sorted(engines.keys())}")
     else:
-        print("[backtest_rs] Tidak ada engine M1 — mode legacy one-bar aktif")
+        print("[backtest] Tidak ada engine M1 — mode legacy one-bar aktif")
 
 
     # ── Extract signals ────────────────────────────────────────────────────
