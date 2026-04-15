@@ -326,8 +326,41 @@ def build_replay_ledgers_fast(
 # Format conversion helpers
 # ---------------------------------------------------------------------------
 
+def _normalize_timestamp_column(df: Any, symbol: str):
+    """Ensure ``Timestamp`` is Int64 epoch-milliseconds for Rust ts_index lookup."""
+    import polars as pl
+
+    if "Timestamp" not in df.columns:
+        return df
+
+    ts_dtype = df.schema.get("Timestamp")
+    try:
+        if ts_dtype == pl.Int64:
+            return df
+        if ts_dtype in (pl.Int32, pl.UInt32, pl.UInt64):
+            return df.with_columns(pl.col("Timestamp").cast(pl.Int64))
+        if isinstance(ts_dtype, pl.Datetime):
+            return df.with_columns(pl.col("Timestamp").dt.epoch(time_unit="ms").cast(pl.Int64))
+        if ts_dtype == pl.Date:
+            return df.with_columns(pl.col("Timestamp").dt.epoch(time_unit="ms").cast(pl.Int64))
+        if ts_dtype == pl.Utf8:
+            return df.with_columns(
+                pl.col("Timestamp")
+                .str.strptime(pl.Datetime, strict=False)
+                .dt.epoch(time_unit="ms")
+                .cast(pl.Int64)
+            )
+    except Exception as exc:
+        warnings.warn(
+            f"[{symbol}] gagal normalisasi Timestamp ke epoch-ms ({exc}); "
+            "engine bisa mengalami timestamp lookup mismatch.",
+            stacklevel=2,
+        )
+    return df
+
+
 def _to_polars(data: Any, symbol: str):
-    """Convert List[dict], pandas DataFrame, or polars DataFrame to polars DataFrame."""
+    """Convert input data to Polars and normalize ``Timestamp`` to epoch-ms."""
     try:
         import polars as pl
     except ImportError:
@@ -335,17 +368,17 @@ def _to_polars(data: Any, symbol: str):
         return None
 
     if isinstance(data, pl.DataFrame):
-        return data
+        return _normalize_timestamp_column(data, symbol)
 
     try:
         import pandas as pd
         if isinstance(data, pd.DataFrame):
-            return pl.from_pandas(data)
+            return _normalize_timestamp_column(pl.from_pandas(data), symbol)
     except ImportError:
         pass
 
     if isinstance(data, list) and data:
-        return pl.DataFrame(data)
+        return _normalize_timestamp_column(pl.DataFrame(data), symbol)
 
     return None
 
