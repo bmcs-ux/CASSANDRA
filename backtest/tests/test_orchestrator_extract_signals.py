@@ -1,6 +1,8 @@
 import importlib.util
+import importlib
 from pathlib import Path
 import unittest
+from datetime import datetime, timezone
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +50,42 @@ class ExtractSignalsPreferredActionTest(unittest.TestCase):
         signals = module.extract_signals(self._sample_cycles())
         self.assertEqual(len(signals), 1)
         self.assertEqual(signals[0]["preferred_action"], "BUY")
+
+    def test_python_orchestrator_normalizes_timestamp_to_epoch_ms(self):
+        pl = importlib.import_module("polars")
+        module = _load_module(REPO_ROOT / "python" / "orchestrator.py")
+        ts = datetime(2026, 3, 19, 12, 20, 0, tzinfo=timezone.utc)
+        df = pl.DataFrame(
+            {
+                "Timestamp": [ts],
+                "Open": [1.0],
+                "High": [1.0],
+                "Low": [1.0],
+                "Close": [1.0],
+            }
+        )
+
+        out = module._to_polars(df, "TEST")
+        self.assertEqual(str(out.schema["Timestamp"]), "Int64")
+        self.assertEqual(out["Timestamp"][0], int(ts.timestamp() * 1000))
+
+    def test_root_orchestrator_normalizes_timestamp_to_epoch_ms(self):
+        pl = importlib.import_module("polars")
+        module = _load_module(REPO_ROOT / "orchestrator.py")
+        ts = datetime(2026, 3, 19, 12, 20, 0, tzinfo=timezone.utc)
+        df = pl.DataFrame(
+            {
+                "Timestamp": [ts],
+                "Open": [1.0],
+                "High": [1.0],
+                "Low": [1.0],
+                "Close": [1.0],
+            }
+        )
+
+        out = module._to_polars(df, "TEST")
+        self.assertEqual(str(out.schema["Timestamp"]), "Int64")
+        self.assertEqual(out["Timestamp"][0], int(ts.timestamp() * 1000))
 
 
 if __name__ == "__main__":

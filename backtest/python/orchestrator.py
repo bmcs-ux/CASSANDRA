@@ -295,7 +295,7 @@ def build_replay_ledgers_fast(
             if df is None:
                 engine_errors.append(f"{sym}: _to_polars gagal (input type={type(raw).__name__})")
                 continue
-            if df.height == 0: # Corrected from df.height()
+            if df.height == 0:
                 engine_errors.append(f"{sym}: DataFrame kosong, skip engine")
                 continue
             try:
@@ -388,8 +388,49 @@ def _df_to_ipc_bytes(df: Any, symbol: str) -> bytes:
         raise ValueError(f"[{symbol}] Gagal serialize ke IPC: {exc}") from exc
 
 
+def _normalize_timestamp_column(df: Any, symbol: str):
+    """Ensure ``Timestamp`` is Int64 epoch-milliseconds for Rust ts_index lookup.
+
+    Why this matters:
+    * Rust `FastEngine` indexes bars by the raw integer value in ``Timestamp``.
+    * Signal timestamps are converted by ``_ts_to_epoch_ms`` (milliseconds).
+    * If OHLC ``Timestamp`` stays as Datetime(ns/us) or string, lookups miss and
+      trades are incorrectly treated as ``open_at_end`` / skipped.
+    """
+    import polars as pl
+
+    if "Timestamp" not in df.columns:
+        return df
+
+    ts_dtype = df.schema.get("Timestamp")
+    try:
+        if ts_dtype == pl.Int64:
+            return df
+        if ts_dtype in (pl.Int32, pl.UInt32, pl.UInt64):
+            return df.with_columns(pl.col("Timestamp").cast(pl.Int64))
+        if isinstance(ts_dtype, pl.Datetime):
+            # Convert Datetime(any unit) → epoch milliseconds.
+            return df.with_columns(pl.col("Timestamp").dt.epoch(time_unit="ms").cast(pl.Int64))
+        if ts_dtype == pl.Date:
+            return df.with_columns(pl.col("Timestamp").dt.epoch(time_unit="ms").cast(pl.Int64))
+        if ts_dtype == pl.Utf8:
+            return df.with_columns(
+                pl.col("Timestamp")
+                .str.strptime(pl.Datetime, strict=False)
+                .dt.epoch(time_unit="ms")
+                .cast(pl.Int64)
+            )
+    except Exception as exc:
+        warnings.warn(
+            f"[{symbol}] gagal normalisasi Timestamp ke epoch-ms ({exc}); "
+            "engine bisa mengalami timestamp lookup mismatch.",
+            stacklevel=2,
+        )
+    return df
+
+
 def _to_polars(data: Any, symbol: str):
-    """Convert List[dict], pandas DataFrame, or polars DataFrame to polars DataFrame."""
+    """Convert input data to Polars and normalize ``Timestamp`` to epoch-ms."""
     try:
         import polars as pl
     except ImportError:
@@ -397,17 +438,17 @@ def _to_polars(data: Any, symbol: str):
         return None
 
     if isinstance(data, pl.DataFrame):
-        return data
+        return _normalize_timestamp_column(data, symbol)
 
     try:
         import pandas as pd
         if isinstance(data, pd.DataFrame):
-            return pl.from_pandas(data)
+            return _normalize_timestamp_column(pl.from_pandas(data), symbol)
     except ImportError:
         pass
 
     if isinstance(data, list) and data:
-        return pl.DataFrame(data)
+        return _normalize_timestamp_column(pl.DataFrame(data), symbol)
 
     return None
 
