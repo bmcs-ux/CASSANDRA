@@ -133,3 +133,26 @@ fn trailing_sl_tightens_correctly() {
     let final_sl = res.final_sl.unwrap();
     assert!(final_sl > 95.0, "SL should have been trailed up from 95.0, got {final_sl}");
 }
+
+#[test]
+fn open_at_end_when_data_shorter_than_max_holding_bars() {
+    let mut cfg = cfg();
+    cfg.max_holding_bars = 10;
+
+    // Only 3 bars available and no SL/TP hit, so simulation should end due to
+    // data exhaustion (open_at_end), not because max bars cap is reached.
+    let df = df(
+        &[100.0; 3],
+        &[101.0; 3],
+        &[99.5; 3],
+        &[100.0; 3],
+    );
+    let res = simulate_trade_inner(
+        &df, 100.0, Direction::Long, Some(90.0), Some(110.0),
+        &cfg, None, None, 3.0, false, false,
+    ).unwrap();
+
+    assert_eq!(res.exit_reason, ExitReason::OpenAtEnd);
+    assert!(res.open_at_end);
+    assert_eq!(res.bars_held, 3);
+}

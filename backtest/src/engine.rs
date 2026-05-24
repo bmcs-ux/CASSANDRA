@@ -292,11 +292,8 @@ pub fn simulate_trade_inner(
 
     // ── Finalise open_at_end (data exhausted without hitting any exit) ────────
     let open_at_end = exit_reason == ExitReason::MaxBarsReached
-        && (exit_idx + 1) < n
-        // If we broke at max_bars the simulation is NOT open_at_end — it hit the cap
-        // Only mark open_at_end when data was truly exhausted before max_bars
-        // (handled by the constructor: slice is bounded by max_holding_bars, so if
-        // df.height() < max_holding_bars, we exhausted data)
+        // If we broke at max_bars the simulation is NOT open_at_end — it hit the cap.
+        // Mark open_at_end only when data was exhausted before max_holding_bars.
         && df.height() < config.max_holding_bars;
 
     let exit_reason_final = if open_at_end { ExitReason::OpenAtEnd } else { exit_reason };
