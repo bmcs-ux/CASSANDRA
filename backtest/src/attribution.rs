@@ -1,4 +1,4 @@
-//! backtest_rs::attribution
+//! backtest::attribution
 //!
 //! Gate attribution summarisation — exact port of Python
 //! `summarize_gate_attribution`.

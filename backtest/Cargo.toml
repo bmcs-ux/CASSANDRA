@@ -1,47 +1,46 @@
 [package]
-name        = "backtest_rs"
+# Sesuaikan name dengan nama module yang ingin di-import di Python
+name        = "backtest"
 version     = "0.1.0"
 edition     = "2021"
 description = "High-performance intrabar backtest engine — Rust/Polars core with PyO3 bindings"
-authors     = ["backtest-team"]
+authors     = ["BIMACHASIN86"]
 
 [lib]
-name    = "backtest_rs"
-crate-type = ["cdylib", "rlib"]   # cdylib → Python extension; rlib → benchmarks / tests
+# name di sini harus match dengan #[pymodule] di src/lib.rs
+name    = "backtest"
+crate-type = ["cdylib", "rlib"]
 
 [features]
 default     = ["python"]
 python      = ["pyo3/extension-module", "dep:pyo3"]
-bench-only  = []   # cargo bench --no-default-features --features bench-only
+bench-only  = []
 
 [dependencies]
-# ── Polars (no Python dep; we work with pure Rust DataFrames) ────────────────
-polars = { version = "0.39", default-features = false, features = [
-    "lazy",          # LazyFrame API
-    "parquet",       # optional: parquet I/O
-    "dtype-full",    # all dtypes including Date/Datetime
-    "strings",       # Utf8/String column ops
-    "temporal",      # timestamp parsing
-    "performant",    # SIMD + rayon
+# 1. Gunakan versi Polars yang stabil dengan fitur minimal untuk menghemat RAM Colab
+polars = { version = "0.39.2", default-features = false, features = [
+    "lazy",
+    "parquet",
+    "dtype-datetime", # Penting untuk timestamp trading
+    "dtype-duration",
+    "strings",
+    "temporal",
+    "performant",
+    "search_sorted",  # Sangat berguna untuk O(log n) bar lookup
 ] }
 
-# ── Parallelism ──────────────────────────────────────────────────────────────
+# 2. Sinkronkan versi PyO3 dengan Polars 0.39 (Gunakan 0.20 untuk stabilitas terbaik dengan Polars 0.39)
+pyo3 = { version = "0.20", features = ["extension-module", "abi3-py38"], optional = true }
+
 rayon   = "1.10"
-
-# ── Python bindings (optional feature) ──────────────────────────────────────
-pyo3    = { version = "0.21", features = ["extension-module", "abi3-py38"], optional = true }
-
-# ── Error handling ───────────────────────────────────────────────────────────
 thiserror = "1"
 anyhow    = "1"
-
-# ── Serialisation (metadata JSON) ───────────────────────────────────────────
 serde       = { version = "1", features = ["derive"] }
 serde_json  = "1"
 
-# ── Utils ────────────────────────────────────────────────────────────────────
-hashbrown = { version = "0.14", features = ["rayon"] }  # faster HashMap
-parking_lot = "0.12"     # fast RwLock for shared state
+# Menggunakan hashbrown 0.14.x secara eksplisit di dependency
+hashbrown = { version = "0.14.5", features = ["rayon", "raw"] }
+parking_lot = "0.12"
 
 [dev-dependencies]
 criterion   = { version = "0.5", features = ["html_reports"] }
@@ -57,6 +56,7 @@ codegen-units= 1
 panic        = "abort"
 strip        = "debuginfo"
 
-[profile.bench]
-inherits  = "release"
-debug     = true
+[patch.crates-io]
+# SOLUSI CRITICAL: Memaksa Polars menggunakan hashbrown versi lama yang memiliki raw_table_mut
+# Ini memperbaiki error E0599 dan E0282 yang Anda alami di Colab
+hashbrown = { git = "https://github.com/rust-lang/hashbrown", tag = "v0.14.5" }

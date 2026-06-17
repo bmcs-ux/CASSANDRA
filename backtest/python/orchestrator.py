@@ -31,6 +31,7 @@ import importlib
 import warnings
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence
+import re
 
 # ---------------------------------------------------------------------------
 # Feature aliases — must stay in sync with Rust FEATURE_FIELD_ALIASES
@@ -60,6 +61,8 @@ _GATE_SKIP   = frozenset({
     "rls_confidence", "deviation_score", "kalman_zscore", "dcc_correlation",
     "innovation_zscore", "trend", "contagion_score", "can_buy", "can_sell",
 })
+
+_VALID_GATE_NAME = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -107,11 +110,13 @@ def _extract_gates(signal_obj: Mapping, current_cycle: Mapping, symbol: str) -> 
         for k, v in cand.items():
             if k in _GATE_SKIP or k.startswith("_"):
                 continue
+            if not _VALID_GATE_NAME.match(k):   # ← TAMBAH: tolak key non-identifier
+                continue
             if isinstance(v, bool):
                 gate_results.setdefault(k, v)
-            elif isinstance(v, (int, float)):
-                nb = bool(v)
-                gate_results.setdefault(k, nb)
+            elif isinstance(v, int) and not isinstance(v, bool):
+                # int 0/1 boleh; float dilarang (bisa NaN / junk values)
+                gate_results.setdefault(k, bool(v))
     for gn in blocked_by:
         gate_results[gn] = False
     return gate_results, blocked_by
@@ -182,6 +187,8 @@ def extract_signals(
             sig: dict = {
                 "timestamp":       _ts_to_epoch_ms(ts_raw),
                 "timestamp_str":   str(ts_raw) if ts_raw is not None else "",
+                "cycle_index":     ci,
+                "signal_index":    si,
                 "next_timestamp":  str(nts_raw) if nts_raw is not None else None,
                 "symbol":          symbol,
                 "action":          action,
@@ -280,14 +287,46 @@ def build_replay_ledgers_fast(
 
     # ── Build per-symbol engines ────────────────────────────────────────────
     engines: dict[str, backtest.PyFastEngine] = {}
+    engine_errors: list[str] = []
+
     if mtf_base_dfs:
         for sym, raw in mtf_base_dfs.items():
             df = _to_polars(raw, sym)
-            if df is not None:
-                engines[sym] = backtest.PyFastEngine(df, sym)
+            if df is None:
+                engine_errors.append(f"{sym}: _to_polars gagal (input type={type(raw).__name__})")
+                continue
+            if df.height == 0:
+                engine_errors.append(f"{sym}: DataFrame kosong, skip engine")
+                continue
+            try:
+                ipc_bytes = _df_to_ipc_bytes(df, sym)
+                engines[sym] = backtest.PyFastEngine(ipc_bytes, sym)
+            except Exception as e:
+                engine_errors.append(f"{sym}: {e}")
+
+    if engine_errors:
+        # Raise kalau SEMUA engine gagal — ini indikasi masalah sistemik
+        if mtf_base_dfs and not engines:
+            raise RuntimeError(
+                "Semua M1 engine gagal dibangun:\n" + "\n".join(engine_errors)
+            )
+        # Sebagian gagal — warn tapi lanjut
+        warnings.warn(
+            f"{len(engine_errors)} engine gagal (dari {len(mtf_base_dfs)}):\n"
+            + "\n".join(engine_errors),
+            stacklevel=2,
+        )
+
+    # Log ringkasan engine yang berhasil
+    if engines:
+        print(f"[backtest] {len(engines)}/{len(mtf_base_dfs or {})} engine M1 aktif: "
+              f"{sorted(engines.keys())}")
+    else:
+        print("[backtest] Tidak ada engine M1 — mode legacy one-bar aktif")
+
 
     # ── Extract signals ────────────────────────────────────────────────────
-    signals = extract_signals(cycle_results)
+    signals = extract_signals(cycle_results);
 
     if not signals:
         return _empty_result(fee_bps, slippage_bps, equity_curve_mode, list(horizons))
@@ -326,8 +365,38 @@ def build_replay_ledgers_fast(
 # Format conversion helpers
 # ---------------------------------------------------------------------------
 
+def _df_to_ipc_bytes(df: Any, symbol: str) -> bytes:
+    """Serialize polars DataFrame → Arrow IPC bytes.
+
+    Raises ValueError dengan pesan jelas jika df bukan polars DataFrame
+    atau jika write_ipc gagal — agar caller bisa log dengan benar.
+    """
+    import io
+    try:
+        buf = io.BytesIO()
+        df.write_ipc(buf)           # polars: write_ipc(file) → None
+        result = buf.getvalue()
+        if not result:
+            raise ValueError(f"[{symbol}] write_ipc produced 0 bytes — DataFrame mungkin kosong")
+        return result
+    except AttributeError:
+        raise ValueError(
+            f"[{symbol}] Object bukan polars DataFrame (type={type(df).__name__}). "
+            "Pastikan mtf_base_dfs berisi polars.DataFrame."
+        )
+    except Exception as exc:
+        raise ValueError(f"[{symbol}] Gagal serialize ke IPC: {exc}") from exc
+
+
 def _normalize_timestamp_column(df: Any, symbol: str):
-    """Ensure ``Timestamp`` is Int64 epoch-milliseconds for Rust ts_index lookup."""
+    """Ensure ``Timestamp`` is Int64 epoch-milliseconds for Rust ts_index lookup.
+
+    Why this matters:
+    * Rust `FastEngine` indexes bars by the raw integer value in ``Timestamp``.
+    * Signal timestamps are converted by ``_ts_to_epoch_ms`` (milliseconds).
+    * If OHLC ``Timestamp`` stays as Datetime(ns/us) or string, lookups miss and
+      trades are incorrectly treated as ``open_at_end`` / skipped.
+    """
     import polars as pl
 
     if "Timestamp" not in df.columns:
@@ -340,6 +409,7 @@ def _normalize_timestamp_column(df: Any, symbol: str):
         if ts_dtype in (pl.Int32, pl.UInt32, pl.UInt64):
             return df.with_columns(pl.col("Timestamp").cast(pl.Int64))
         if isinstance(ts_dtype, pl.Datetime):
+            # Convert Datetime(any unit) → epoch milliseconds.
             return df.with_columns(pl.col("Timestamp").dt.epoch(time_unit="ms").cast(pl.Int64))
         if ts_dtype == pl.Date:
             return df.with_columns(pl.col("Timestamp").dt.epoch(time_unit="ms").cast(pl.Int64))

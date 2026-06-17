@@ -1,4 +1,4 @@
-//! backtest_rs::runner
+//! backtest::runner
 //!
 //! High-level batch runner.
 //!
@@ -30,7 +30,6 @@
 
 use std::collections::HashMap;
 
-use anyhow::Result;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +48,8 @@ use crate::{
 pub struct SignalInput {
     pub timestamp:       i64,        // epoch-ms for ts_index lookup
     pub timestamp_str:   String,     // ISO string for ledger rows
+    pub cycle_index:      usize,
+    pub signal_index:     usize,
     pub next_timestamp:  Option<String>,
     pub symbol:          String,
     pub action:          String,     // "BUY" | "SELL" | "HOLD"
@@ -81,7 +82,7 @@ pub struct SignalInput {
 // Batch result
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct BatchResult {
     pub trade_ledger:    Vec<TradeRow>,
     pub decision_ledger: Vec<DecisionRow>,
@@ -112,7 +113,10 @@ pub fn process_signal(
         decision.skip_reason = Some("hold_signal".into());
         return (decision, None);
     }
-
+    if dir_int == 0 && sig.preferred_action.is_none() {
+        decision.skip_reason = Some("hold_signal".into());
+        return (decision, None);
+    }
     // ── Entry price ─────────────────────────────────────────────────────────
     let (entry_raw, entry_src, entry_fallback) = match sig.entry_price {
         Some(p) => (p, "signal", false),
@@ -174,6 +178,11 @@ pub fn process_signal(
     decision.gate_results.insert("exit_price_available".into(), true);
 
     // ── PnL calculation ──────────────────────────────────────────────────────
+    if pref_dir == 0 {
+        decision.skip_reason = Some("hold_signal".into());
+        return (decision, None);
+    }
+
     let scr = (cfg.fee_bps + cfg.slippage_bps) / 10_000.0;
     let ep_eff   = entry_raw * (1.0 + pref_dir as f64 * scr);
     let exit_raw = sim_result.exit_price_raw;
@@ -374,7 +383,7 @@ fn legacy_sim(
     sig:       &SignalInput,
     entry_raw: f64,
     dir:       Direction,
-    cfg:       &EngineConfig,
+    _cfg:       &EngineConfig,
 ) -> crate::types::SimResult {
     use crate::types::SimResult;
     match sig.exit_price_next {

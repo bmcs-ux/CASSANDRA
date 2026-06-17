@@ -1,4 +1,4 @@
-//! backtest_rs::engine
+//! backtest::engine
 //!
 //! `FastEngine` owns one per-symbol M1 DataFrame sorted by Timestamp.
 //! It prebuilds a HashMap<i64, usize> for O(1) bar-index lookup, then
@@ -22,7 +22,6 @@
 //! 5. **Label pass** is a single forward loop reusing the same bar indices
 //!    already visited during SL/TP detection — no second traversal.
 
-use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 use hashbrown::HashMap as FastMap;
@@ -179,10 +178,7 @@ pub fn simulate_trade_inner(
     } else {
         None
     };
-    let kz_ca_opt: Option<&ChunkedArray<Float64Type>> = kz_opt
-        .as_ref()
-        .and_then(|s| s.cast(&DataType::Float64).ok().as_ref().map(|_| None).or(None));
-    // We cast lazily to avoid allocation when kalman not present — handle below.
+
 
     // ── Mutable SL/TP state ──────────────────────────────────────────────────
     let mut sl       = initial_sl;
@@ -216,7 +212,7 @@ pub fn simulate_trade_inner(
         // 2. Kalman flip check (before SL/TP to mirror live engine)
         if has_ktrend && has_kz {
             if let Some(flipped) = check_kalman_flip_at(
-                df, ktrend_opt.as_ref(), i, dir, flip_threshold,
+                df, ktrend_opt, i, dir, flip_threshold,
             ) {
                 if flipped {
                     kalman_flip_bar = Some(bar_i);
@@ -296,11 +292,8 @@ pub fn simulate_trade_inner(
 
     // ── Finalise open_at_end (data exhausted without hitting any exit) ────────
     let open_at_end = exit_reason == ExitReason::MaxBarsReached
-        && (exit_idx + 1) < n
-        // If we broke at max_bars the simulation is NOT open_at_end — it hit the cap
-        // Only mark open_at_end when data was truly exhausted before max_bars
-        // (handled by the constructor: slice is bounded by max_holding_bars, so if
-        // df.height() < max_holding_bars, we exhausted data)
+        // If we broke at max_bars the simulation is NOT open_at_end — it hit the cap.
+        // Mark open_at_end only when data was exhausted before max_holding_bars.
         && df.height() < config.max_holding_bars;
 
     let exit_reason_final = if open_at_end { ExitReason::OpenAtEnd } else { exit_reason };

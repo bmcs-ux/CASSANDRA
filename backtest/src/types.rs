@@ -1,4 +1,4 @@
-//! backtest_rs::types
+//! backtest::types
 //!
 //! Shared value types used across the entire crate.
 //! All structs derive Serde so they can be round-tripped to JSON in the Python
@@ -102,6 +102,7 @@ pub struct TradeRow {
     pub next_timestamp:         Option<String>,
     pub symbol:                 String,
     pub action:                 String,
+    pub preferred_action:       String,
     pub direction:              i32,
     pub entry_price_raw:        f64,
     pub entry_price_effective:  f64,

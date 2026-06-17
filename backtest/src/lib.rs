@@ -1,4 +1,4 @@
-//! backtest_rs — Sprint 3 high-performance intrabar backtest engine
+//! backtest — Sprint 3 high-performance intrabar backtest engine
 //!
 //! Module layout:
 //!   types           — shared value types (ExitReason, Direction, SimResult, …)
@@ -27,8 +27,8 @@ use pyo3::prelude::*;
 
 #[cfg(feature = "python")]
 #[pymodule]
-fn backtest_rs(py: Python<'_>, m: &PyModule) -> PyResult<()> {
-    python_bindings::backtest_rs(py, m)
+fn backtest(py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    python_bindings::backtest(py, m)
 }
 
 // Expose open_at_end_stub publicly so runner.rs can call it

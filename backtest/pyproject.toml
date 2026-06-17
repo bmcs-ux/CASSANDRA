@@ -3,7 +3,7 @@ requires      = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
-name            = "backtest_rs"
+name            = "backtest"
 version         = "0.1.0"
 description     = "High-performance intrabar backtest engine (Rust/Polars core)"
 requires-python = ">=3.8"
@@ -16,8 +16,7 @@ full = ["polars", "pyarrow", "pandas", "python-dateutil"]
 [tool.maturin]
 # Compile Rust → Python extension wheel
 features         = ["pyo3/extension-module"]
-module-name      = "backtest_rs"
-python-source    = "python"
+module-name      = "backtest"
 manifest-path    = "Cargo.toml"
 
 # Release build flags (already in Cargo.toml [profile.release])
